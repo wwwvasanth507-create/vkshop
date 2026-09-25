@@ -1,8 +1,10 @@
 # Gunicorn Production Configuration
+import os
 import multiprocessing
 
-# Bind to localhost/all interfaces on Flask default port
-bind = "0.0.0.0:5000"
+# Bind to localhost/all interfaces on Render dynamic PORT
+port = os.environ.get('PORT', '5000')
+bind = f"0.0.0.0:{port}"
 
 # Multi-threaded worker setup (highly optimized for ultra-fast performance)
 workers = multiprocessing.cpu_count() * 2 + 1

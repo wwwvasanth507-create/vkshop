@@ -27,6 +27,9 @@ class Config:
     
     # Check for DATABASE_URL or build PostgreSQL URI
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
+        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
+        
     if not SQLALCHEMY_DATABASE_URI:
         db_user = os.environ.get('POSTGRES_USER')
         db_password = os.environ.get('POSTGRES_PASSWORD')
@@ -36,6 +39,8 @@ class Config:
         if all([db_user, db_password, db_host, db_port, db_name]):
             SQLALCHEMY_DATABASE_URI = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         else:
+            if ENV == 'production':
+                raise RuntimeError("Production mode requires PostgreSQL. Please set DATABASE_URL or POSTGRES_* environment variables.")
             SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(DB_DIR, 'ecommerce.db')
             
     SQLALCHEMY_TRACK_MODIFICATIONS = False
@@ -66,21 +71,37 @@ class Config:
             SESSION_PERMANENT = True
             SESSION_KEY_PREFIX = 'ecom_sess:'
         except Exception:
-            SESSION_TYPE = 'filesystem'
-            SESSION_FILE_DIR = os.path.join(BASE_DIR, 'database', 'sessions')
-            os.makedirs(SESSION_FILE_DIR, exist_ok=True)
-            SESSION_PERMANENT = True
+            if ENV == 'production':
+                # Use standard Flask signed cookie sessions in production if Redis is missing
+                SESSION_TYPE = 'cookie'
+            else:
+                SESSION_TYPE = 'filesystem'
+                SESSION_FILE_DIR = os.path.join(BASE_DIR, 'database', 'sessions')
+                os.makedirs(SESSION_FILE_DIR, exist_ok=True)
+                SESSION_PERMANENT = True
+
 
         
     # Rate Limiting Settings
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'memory://')
     
-    # MinIO S3 Settings
+    # Provider-Agnostic Storage Settings (compatible with MinIO, R2, S3, Supabase, B2)
+    STORAGE_PROVIDER = os.environ.get('STORAGE_PROVIDER', 's3')
+    STORAGE_PUBLIC_URL = os.environ.get('STORAGE_PUBLIC_URL', '').rstrip('/')
+    ALLOW_LOCAL_STORAGE_FALLBACK = os.environ.get('ALLOW_LOCAL_STORAGE_FALLBACK', 'False' if ENV == 'production' else 'True').lower() in ('true', '1', 't')
+    
+    # MinIO / S3 Credentials (Backward compatible)
     MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT')
     MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY')
     MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY')
     MINIO_BUCKET_NAME = os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
     MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() in ('true', '1', 't')
+    
+    # Image Optimization Configuration
+    IMAGE_MAX_WIDTH = int(os.environ.get('IMAGE_MAX_WIDTH', 1600))
+    IMAGE_MAX_HEIGHT = int(os.environ.get('IMAGE_MAX_HEIGHT', 1600))
+    IMAGE_WEBP_QUALITY = int(os.environ.get('IMAGE_WEBP_QUALITY', 82))
+    IMAGE_MAX_UPLOAD_MB = int(os.environ.get('IMAGE_MAX_UPLOAD_MB', 15))
     
     # Local Upload Directories (retained for backward compatibility / sync)
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')

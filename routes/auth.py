@@ -78,21 +78,21 @@ def register():
                     flash('Seller details are banned.', 'danger')
                     return render_template('auth/register.html')
             
-            from werkzeug.utils import secure_filename
-            from config import Config
-            import os
+            from services.storage import upload_file_field, storage_service
+            doc_category = f"seller-documents/{username}"
             
-            os.makedirs(Config.USER_UPLOADS, exist_ok=True)
+            fn_front, err1 = upload_file_field(aadhaar_front_file, doc_category, is_private=True)
+            fn_back, err2 = upload_file_field(aadhaar_back_file, doc_category, is_private=True)
+            fn_photo, err3 = upload_file_field(photo_file, doc_category, is_private=True)
+            fn_sig, err4 = upload_file_field(sig_file, doc_category, is_private=True)
             
-            fn_front = secure_filename(f"aadhaar_front_{username}_{aadhaar_front_file.filename}")
-            fn_back = secure_filename(f"aadhaar_back_{username}_{aadhaar_back_file.filename}")
-            fn_photo = secure_filename(f"photo_{username}_{photo_file.filename}")
-            fn_sig = secure_filename(f"signature_{username}_{sig_file.filename}")
-            
-            aadhaar_front_file.save(os.path.join(Config.USER_UPLOADS, fn_front))
-            aadhaar_back_file.save(os.path.join(Config.USER_UPLOADS, fn_back))
-            photo_file.save(os.path.join(Config.USER_UPLOADS, fn_photo))
-            sig_file.save(os.path.join(Config.USER_UPLOADS, fn_sig))
+            first_err = err1 or err2 or err3 or err4
+            if first_err:
+                for k in [fn_front, fn_back, fn_photo, fn_sig]:
+                    if k:
+                        storage_service.delete_file(k)
+                flash(f"Seller document upload failed: {first_err}", 'danger')
+                return render_template('auth/register.html')
             
             seller_docs = {
                 'aadhaar_number': aadhaar_number,

@@ -2,7 +2,7 @@ import os
 import logging
 from logging.handlers import RotatingFileHandler
 from datetime import datetime
-from flask import Flask, redirect, url_for, flash, render_template, request, send_file
+from flask import Flask, redirect, url_for, flash, render_template, request, send_file, jsonify
 from flask_login import LoginManager, current_user
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -38,10 +38,12 @@ def clear_categories_cache():
     _categories_cache = None
 
 def monkeypatch_file_storage():
-    """Intercept all uploads and transparently upload to MinIO S3 instead of local disk."""
+    """Intercept all uploads, apply image optimization, and upload to S3/Object storage."""
     from werkzeug.datastructures import FileStorage
     from flask import current_app
+    import logging
     
+    logger = logging.getLogger('storage')
     original_save = FileStorage.save
     
     def patched_save(self, dst, buffer_size=16384):
@@ -52,11 +54,35 @@ def monkeypatch_file_storage():
             rel_path = os.path.relpath(normalized_dst, uploads_dir)
             object_name = rel_path.replace('\\', '/')
             
-            self.stream.seek(0)
-            from services.storage import storage_service
-            if storage_service.client is not None:
+            from services.storage import storage_service, optimize_image_bytes
+            
+            if storage_service.is_available():
+                self.stream.seek(0)
+                content_type = self.content_type or ''
+                
+                # If uploaded file is an image, attempt Pillow optimization
+                if content_type.startswith('image/') or any(object_name.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.bmp']):
+                    try:
+                        raw_bytes = self.stream.read()
+                        self.stream.seek(0)
+                        opt_bytes, opt_mime, opt_ext = optimize_image_bytes(raw_bytes)
+                        storage_service.upload_bytes(opt_bytes, object_name, content_type=opt_mime)
+                        logger.info(f"Optimized image upload: {object_name} ({len(raw_bytes)} -> {len(opt_bytes)} bytes)")
+                        return
+                    except Exception as err:
+                        logger.warning(f"Image optimization skipped for {object_name}, uploading raw stream: {err}")
+                        self.stream.seek(0)
+                
+                # Upload raw stream for non-image files or if optimization skipped
                 storage_service.upload_file_stream(self.stream, object_name, content_type=self.content_type)
                 return
+            else:
+                allow_fallback = current_app.config.get('ALLOW_LOCAL_STORAGE_FALLBACK', True)
+                if not allow_fallback:
+                    error_msg = f"Persistent object storage is unavailable and ALLOW_LOCAL_STORAGE_FALLBACK is disabled. Failed to save {object_name}."
+                    logger.error(error_msg)
+                    raise RuntimeError(error_msg)
+                logger.warning(f"S3 Object storage unavailable. Using local fallback for {object_name}.")
                 
         original_save(self, dst, buffer_size)
         
@@ -145,7 +171,10 @@ def create_app():
         default_limits=["150 per minute"]
     )
     
-    # 7. Global Context Data Injector
+    # 7. Global Context Data Injector & Image URL Resolver
+    from services.storage import resolve_image_url
+    app.jinja_env.filters['image_url'] = resolve_image_url
+
     @app.context_processor
     def inject_global_data():
         wishlist_ids = []
@@ -157,7 +186,8 @@ def create_app():
                 pass
         return dict(
             all_categories=get_cached_categories(),
-            wishlist_product_ids=wishlist_ids
+            wishlist_product_ids=wishlist_ids,
+            image_url=resolve_image_url
         )
         
     # 8. Outgoing Security Headers Injector
@@ -224,6 +254,32 @@ def create_app():
             if os.path.exists(local_path):
                 return send_file(local_path)
             from flask import abort
+            abort(404)
+
+    # 13. Authenticated Route for Private Documents
+    @app.route('/private/file/<path:filename>')
+    def serve_private_document(filename):
+        from flask_login import current_user
+        from flask import abort
+        if not current_user.is_authenticated:
+            abort(401)
+            
+        from services.storage import storage_service
+        try:
+            response, stat = storage_service.get_file(filename)
+            import io
+            file_data = response.read()
+            response.close()
+            response.release_conn()
+            return send_file(
+                io.BytesIO(file_data),
+                mimetype=stat.content_type or 'application/octet-stream',
+                as_attachment=False
+            )
+        except Exception:
+            local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            if os.path.exists(local_path):
+                return send_file(local_path)
             abort(404)
             
     # 13. Sync uploads on startup

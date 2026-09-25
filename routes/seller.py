@@ -259,24 +259,40 @@ def store_settings():
         store.store_contact = request.form.get('store_contact', '').strip()
         
         # Files upload (logo / banner / qr_code)
-        from config import Config
+        from services.storage import upload_file_field, storage_service
+        
         logo_file = request.files.get('logo')
         if logo_file and logo_file.filename:
-            fn = secure_filename(f"logo_{store.id}_{logo_file.filename}")
-            logo_file.save(os.path.join(Config.STORE_UPLOADS, fn))
-            store.logo = fn
+            old_logo = store.logo
+            key, err = upload_file_field(logo_file, 'stores')
+            if err:
+                flash(f"Failed to upload logo: {err}", "danger")
+            elif key:
+                store.logo = key
+                if old_logo and old_logo != key:
+                    storage_service.delete_file(old_logo)
             
         banner_file = request.files.get('banner')
         if banner_file and banner_file.filename:
-            fn = secure_filename(f"banner_{store.id}_{banner_file.filename}")
-            banner_file.save(os.path.join(Config.STORE_UPLOADS, fn))
-            store.banner = fn
+            old_banner = store.banner
+            key, err = upload_file_field(banner_file, 'stores/banners')
+            if err:
+                flash(f"Failed to upload banner: {err}", "danger")
+            elif key:
+                store.banner = key
+                if old_banner and old_banner != key:
+                    storage_service.delete_file(old_banner)
             
         qr_file = request.files.get('qr_code')
         if qr_file and qr_file.filename:
-            fn = secure_filename(f"qr_{store.id}_{qr_file.filename}")
-            qr_file.save(os.path.join(Config.STORE_UPLOADS, fn))
-            store.qr_code_path = fn
+            old_qr = store.qr_code_path
+            key, err = upload_file_field(qr_file, 'stores/qr')
+            if err:
+                flash(f"Failed to upload QR code: {err}", "danger")
+            elif key:
+                store.qr_code_path = key
+                if old_qr and old_qr != key:
+                    storage_service.delete_file(old_qr)
             
         db.session.commit()
         log_audit("UPDATE_STORE_SETTINGS", f"Updated store details for: {store.name}")
@@ -334,12 +350,16 @@ def add_product():
         
         image_file = request.files.get('primary_image')
         if image_file and image_file.filename:
-            from config import Config
-            fn = secure_filename(f"img_{prod.id}_{image_file.filename}")
-            image_file.save(os.path.join(Config.PRODUCT_UPLOADS, fn))
-            pimg = ProductImage(product_id=prod.id, image_path=fn, is_primary=True)
-            db.session.add(pimg)
-            db.session.commit()
+            from services.storage import upload_file_field, storage_service
+            key, err = upload_file_field(image_file, 'products')
+            if err:
+                db.session.rollback()
+                flash(f"Failed to upload product image: {err}", "danger")
+                return render_template('seller/add_product.html', categories=categories, brands=brands)
+            if key:
+                pimg = ProductImage(product_id=prod.id, image_path=key, is_primary=True)
+                db.session.add(pimg)
+                db.session.commit()
             
         log_audit("ADD_PRODUCT", f"Added product: {name} SKU: {sku}")
         flash("Product added successfully. Now add variants.", "success")
@@ -382,14 +402,22 @@ def edit_product(prod_id):
                 specs[k.strip()] = v.strip()
         prod.specifications = specs
         
-        from config import Config
+        from services.storage import upload_file_field, storage_service
         gallery_files = request.files.getlist('gallery_images')
+        uploaded_keys = []
         for g_file in gallery_files:
             if g_file and g_file.filename:
-                fn = secure_filename(f"img_{prod.id}_{g_file.filename}")
-                g_file.save(os.path.join(Config.PRODUCT_UPLOADS, fn))
-                pimg = ProductImage(product_id=prod.id, image_path=fn, is_primary=False)
-                db.session.add(pimg)
+                key, err = upload_file_field(g_file, 'products')
+                if err:
+                    for k in uploaded_keys:
+                        storage_service.delete_file(k)
+                    db.session.rollback()
+                    flash(f"Gallery image upload failed: {err}", "danger")
+                    return redirect(request.referrer or url_for('seller.edit_product', prod_id=prod.id))
+                if key:
+                    uploaded_keys.append(key)
+                    pimg = ProductImage(product_id=prod.id, image_path=key, is_primary=False)
+                    db.session.add(pimg)
                 
         db.session.commit()
         log_audit("EDIT_PRODUCT", f"Updated product ID: {prod_id}")
@@ -402,11 +430,39 @@ def edit_product(prod_id):
 def delete_product(prod_id):
     store = current_user.store_profile
     prod = Product.query.filter_by(id=prod_id, seller_id=store.id).first_or_404()
+    
+    from services.storage import storage_service
+    for img in prod.images:
+        if img.image_path:
+            storage_service.delete_file(img.image_path)
+    for var in prod.variants:
+        if var.image_path:
+            storage_service.delete_file(var.image_path)
+            
     db.session.delete(prod)
     db.session.commit()
     log_audit("DELETE_PRODUCT", f"Deleted product ID: {prod_id}")
     flash("Product deleted successfully.", "success")
     return redirect(url_for('seller.dashboard') + '#products')
+
+@seller_bp.route('/product/image/delete/<int:img_id>')
+def delete_product_image(img_id):
+    store = current_user.store_profile
+    img = ProductImage.query.join(Product).filter(
+        ProductImage.id == img_id,
+        Product.seller_id == store.id
+    ).first_or_404()
+    prod_id = img.product_id
+    
+    from services.storage import storage_service
+    if img.image_path:
+        storage_service.delete_file(img.image_path)
+        
+    db.session.delete(img)
+    db.session.commit()
+    log_audit("DELETE_PRODUCT_IMAGE", f"Deleted image ID {img_id}")
+    flash("Product image deleted.", "success")
+    return redirect(request.referrer or url_for('seller.edit_product', prod_id=prod_id))
 
 # ----------------- STOCK UPDATE ROUTES -----------------
 @seller_bp.route('/product/<int:prod_id>/stock/update', methods=['POST'])
@@ -456,9 +512,12 @@ def add_variant(prod_id):
     image_fn = None
     var_image = request.files.get('variant_image')
     if var_image and var_image.filename:
-        from config import Config
-        image_fn = secure_filename(f"var_{prod_id}_{uuid.uuid4().hex[:4]}_{var_image.filename}")
-        var_image.save(os.path.join(Config.PRODUCT_UPLOADS, image_fn))
+        from services.storage import upload_file_field
+        key, err = upload_file_field(var_image, 'products/variants')
+        if err:
+            flash(f"Failed to upload variant image: {err}", "danger")
+            return redirect(request.referrer or url_for('seller.edit_product', prod_id=prod.id))
+        image_fn = key
         
     var = ProductVariant(
         product_id=prod.id, sku=sku, stock=stock, price=price,
@@ -478,6 +537,10 @@ def delete_variant(var_id):
     var = ProductVariant.query.filter_by(id=var_id).first_or_404()
     prod = Product.query.filter_by(id=var.product_id, seller_id=store.id).first_or_404()
     
+    if var.image_path:
+        from services.storage import storage_service
+        storage_service.delete_file(var.image_path)
+        
     db.session.delete(var)
     db.session.commit()
     log_audit("DELETE_PRODUCT_VARIANT", f"Deleted variant ID {var_id}")
@@ -952,13 +1015,12 @@ def pay_commission():
             flash("UTR number, contact number, and screenshot are required.", "danger")
             return redirect(request.referrer or url_for('seller.pay_commission'))
             
-        from werkzeug.utils import secure_filename
-        from config import Config
-        import os
-        
-        os.makedirs(Config.USER_UPLOADS, exist_ok=True)
-        fn_screenshot = secure_filename(f"commission_{store.id}_{screenshot_file.filename}")
-        screenshot_file.save(os.path.join(Config.USER_UPLOADS, fn_screenshot))
+        from services.storage import upload_file_field
+        key, err = upload_file_field(screenshot_file, 'commission', is_private=True)
+        if err:
+            flash(f"Failed to upload payment proof screenshot: {err}", "danger")
+            return redirect(request.referrer or url_for('seller.pay_commission'))
+        fn_screenshot = key
         
         from models import CommissionPayment
         cp = CommissionPayment(
@@ -1012,15 +1074,14 @@ def commission_report():
             flash("Please provide an explanation for your report.", "danger")
             return redirect(request.referrer or url_for('seller.commission_report'))
         
-        from config import Config
-        from werkzeug.utils import secure_filename
-        import os
-        
         fn_proof = None
         if proof_file and proof_file.filename:
-            os.makedirs(Config.USER_UPLOADS, exist_ok=True)
-            fn_proof = secure_filename(f"report_{store.id}_{proof_file.filename}")
-            proof_file.save(os.path.join(Config.USER_UPLOADS, fn_proof))
+            from services.storage import upload_file_field
+            key, err = upload_file_field(proof_file, 'commission-reports', is_private=True)
+            if err:
+                flash(f"Failed to upload proof file: {err}", "danger")
+                return redirect(request.referrer or url_for('seller.commission_report'))
+            fn_proof = key
         
         from models import CommissionReport
         report = CommissionReport(

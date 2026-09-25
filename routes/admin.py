@@ -718,11 +718,13 @@ def add_category():
     # Handle category icon image upload
     icon_file = request.files.get('icon_image')
     if icon_file and icon_file.filename:
-        from config import Config
-        fn = secure_filename(f"cat_icon_{cat.id}_{icon_file.filename}")
-        icon_file.save(os.path.join(Config.CATEGORY_UPLOADS, fn))
-        cat.icon = fn
-        db.session.commit()
+        from services.storage import upload_file_field
+        key, err = upload_file_field(icon_file, 'categories')
+        if err:
+            flash(f"Failed to upload category icon: {err}", "danger")
+        elif key:
+            cat.icon = key
+            db.session.commit()
         
     try:
         from app import clear_categories_cache
@@ -762,6 +764,10 @@ def delete_category(cat_id):
     cat = Category.query.get_or_404(cat_id)
     name = cat.name
     
+    if cat.icon:
+        from services.storage import storage_service
+        storage_service.delete_file(cat.icon)
+        
     db.session.delete(cat)
     db.session.commit()
     
@@ -812,13 +818,14 @@ def add_banner():
         flash("Banner image is required.", "danger")
         return redirect(url_for('admin.dashboard') + '#banners')
         
-    from config import Config
-    from werkzeug.utils import secure_filename
-    fn = secure_filename(f"banner_{uuid.uuid4().hex[:8]}_{banner_file.filename}")
-    banner_file.save(os.path.join(Config.BANNER_UPLOADS, fn))
-    
+    from services.storage import upload_file_field
+    key, err = upload_file_field(banner_file, 'banners')
+    if err or not key:
+        flash(f"Failed to upload banner image: {err or 'Unknown error'}", "danger")
+        return redirect(url_for('admin.dashboard') + '#banners')
+        
     banner = Banner(
-        title=title, subtitle=subtitle, image_path=fn,
+        title=title, subtitle=subtitle, image_path=key,
         link_url=link_url, order_seq=order_seq, is_active=True,
         expires_at=expires_at
     )
@@ -831,12 +838,9 @@ def add_banner():
 @admin_bp.route('/banner/delete/<int:banner_id>')
 def delete_banner(banner_id):
     banner = Banner.query.get_or_404(banner_id)
-    # Remove file from disk
-    from config import Config
-    try:
-        os.remove(os.path.join(Config.BANNER_UPLOADS, banner.image_path))
-    except Exception:
-        pass
+    if banner.image_path:
+        from services.storage import storage_service
+        storage_service.delete_file(banner.image_path)
     db.session.delete(banner)
     db.session.commit()
     log_audit("DELETE_BANNER", f"Deleted banner: {banner.title}")
@@ -904,11 +908,10 @@ def process_return(ret_id, action):
 def cleanup_expired_banners():
     now = datetime.utcnow()
     expired_banners = Banner.query.filter(Banner.expires_at != None, Banner.expires_at <= now).all()
+    from services.storage import storage_service
     for banner in expired_banners:
-        try:
-            os.remove(os.path.join(Config.BANNER_UPLOADS, banner.image_path))
-        except Exception:
-            pass
+        if banner.image_path:
+            storage_service.delete_file(banner.image_path)
         db.session.delete(banner)
     if expired_banners:
         db.session.commit()
@@ -958,14 +961,21 @@ def system_settings():
         # Handle Admin QR Code Upload
         qr_file = request.files.get('ADMIN_QR_CODE')
         if qr_file and qr_file.filename:
-            fn = secure_filename(f"admin_qr_{qr_file.filename}")
-            qr_file.save(os.path.join(Config.ADMIN_UPLOADS, fn))
+            from services.storage import upload_file_field, storage_service
             setting = SystemSetting.query.filter_by(key='ADMIN_QR_CODE').first()
-            if setting:
-                setting.value = fn
-            else:
-                setting = SystemSetting(key='ADMIN_QR_CODE', value=fn)
-                db.session.add(setting)
+            old_qr = setting.value if setting else None
+            
+            key, err = upload_file_field(qr_file, 'admin/qr')
+            if err:
+                flash(f"Failed to upload admin QR code: {err}", "danger")
+            elif key:
+                if setting:
+                    setting.value = key
+                else:
+                    setting = SystemSetting(key='ADMIN_QR_CODE', value=key)
+                    db.session.add(setting)
+                if old_qr and old_qr != key:
+                    storage_service.delete_file(old_qr)
 
         db.session.commit()
         log_audit("UPDATE_SETTINGS", "System settings updated")

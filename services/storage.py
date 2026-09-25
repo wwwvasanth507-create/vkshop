@@ -1,151 +1,436 @@
 import os
 import io
+import uuid
+import re
 import logging
+from typing import Tuple, Optional, Union
 from minio import Minio
 from flask import current_app
+from PIL import Image, ImageOps
 
 logger = logging.getLogger('storage')
+
+# Set Pillow maximum pixel safety limit to defend against decompression bombs (25 Megapixels)
+Image.MAX_IMAGE_PIXELS = 25 * 1024 * 1024
+
+def sanitize_object_key(key: str) -> str:
+    """
+    Sanitize an object key/path to prevent path traversal attacks.
+    Removes null bytes, backslashes, drive letters, leading slashes, and '../' sequences.
+    """
+    if not key:
+        return f"uncategorized/{uuid.uuid4().hex}"
+        
+    # Remove null bytes
+    s = key.replace('\x00', '')
+    
+    # Replace Windows backslashes with forward slashes
+    s = s.replace('\\', '/')
+    
+    # Remove drive letters e.g. C:
+    s = re.sub(r'^[a-zA-Z]:', '', s)
+    
+    # Remove path traversal tokens like ../ or ./
+    parts = [p for p in s.split('/') if p and p not in ('.', '..')]
+    
+    clean_key = '/'.join(parts)
+    return clean_key or f"uncategorized/{uuid.uuid4().hex}"
+
+def generate_object_key(category: str, original_filename: str, extension: str = None) -> str:
+    """
+    Generate a safe, collision-resistant object key using a UUID.
+    Example: products/b47f98d4-5390-48e0-a7bb-6a75f10adcfb.webp
+    """
+    cat = sanitize_object_key(category.strip().lower() if category else 'uploads')
+    
+    if extension:
+        ext = extension.strip().lower()
+        if not ext.startswith('.'):
+            ext = f".{ext}"
+    else:
+        # Extract extension from original filename
+        _, raw_ext = os.path.splitext(original_filename or '')
+        ext = raw_ext.strip().lower()
+        # Clean extension against non-alphanumeric chars
+        ext = re.sub(r'[^a-z0-9\.]', '', ext)
+        if not ext or len(ext) > 10:
+            ext = '.webp'
+            
+    unique_id = uuid.uuid4().hex
+    return f"{cat}/{unique_id}{ext}"
+
+def optimize_image_bytes(
+    image_input: Union[bytes, io.BytesIO],
+    max_width: Optional[int] = None,
+    max_height: Optional[int] = None,
+    quality: Optional[int] = None,
+    target_format: str = 'WEBP'
+) -> Tuple[bytes, str, str]:
+    """
+    Validate and optimize an image using Pillow.
+    - Validates image header and format (rejects corrupt images/decompression bombs/executable scripts/HTML/SVG).
+    - Respects EXIF orientation.
+    - Resizes image proportionally if dimensions exceed max_width/max_height (without upscaling).
+    - Converts photographic images to WebP format by default.
+    - Preserves RGBA transparency if present.
+    
+    Returns:
+        Tuple of (optimized_bytes, content_type, file_extension)
+    """
+    # Resolve configuration options
+    try:
+        max_w = max_width or current_app.config.get('IMAGE_MAX_WIDTH', 1600)
+        max_h = max_height or current_app.config.get('IMAGE_MAX_HEIGHT', 1600)
+        q = quality or current_app.config.get('IMAGE_WEBP_QUALITY', 82)
+    except Exception:
+        max_w = max_width or 1600
+        max_h = max_height or 1600
+        q = quality or 82
+
+    # Read input into BytesIO buffer
+    if isinstance(image_input, bytes):
+        input_buf = io.BytesIO(image_input)
+    else:
+        image_input.seek(0)
+        input_buf = io.BytesIO(image_input.read())
+        image_input.seek(0)
+
+    try:
+        # Open image with Pillow to validate header and image structure
+        with Image.open(input_buf) as img:
+            # Check for invalid or unsafe formats
+            if img.format in ('SVG', 'HTML', 'XBM'):
+                raise ValueError(f"Unsupported or unsafe image format: {img.format}")
+
+            # Verify image integrity
+            img.verify()
+            
+            # Re-open after verify() as Pillow documentation specifies
+            input_buf.seek(0)
+            img = Image.open(input_buf)
+            
+            # Decompression bomb dimension check
+            w, h = img.size
+            if w * h > Image.MAX_IMAGE_PIXELS:
+                raise ValueError(f"Image dimensions ({w}x{h}) exceed maximum pixel safety threshold.")
+
+            # Correct EXIF orientation
+            try:
+                img = ImageOps.exif_transpose(img)
+            except Exception as e:
+                logger.debug(f"EXIF transpose skipped: {e}")
+
+            # Calculate proportional resize (no upscaling)
+            target_w, target_h = img.size
+            if target_w > max_w or target_h > max_h:
+                img.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
+
+            # Determine mode & save format
+            fmt = target_format.upper()
+            output_buf = io.BytesIO()
+
+            if fmt == 'WEBP':
+                if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
+                    img.save(output_buf, format='WEBP', quality=q, method=4)
+                else:
+                    if img.mode != 'RGB':
+                        img = img.convert('RGB')
+                    img.save(output_buf, format='WEBP', quality=q, method=4)
+                content_type = 'image/webp'
+                ext = '.webp'
+            elif fmt in ('JPEG', 'JPG'):
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(output_buf, format='JPEG', quality=q, optimize=True)
+                content_type = 'image/jpeg'
+                ext = '.jpg'
+            elif fmt == 'PNG':
+                img.save(output_buf, format='PNG', optimize=True)
+                content_type = 'image/png'
+                ext = '.png'
+            else:
+                raise ValueError(f"Unsupported target format: {fmt}")
+
+            return output_buf.getvalue(), content_type, ext
+
+    except Exception as e:
+        logger.error(f"Image validation or optimization failed: {e}")
+        raise ValueError(f"Invalid or corrupt image: {e}")
 
 class StorageService:
     def __init__(self):
         self._client = None
         self._bucket_name = None
 
+    def is_available(self) -> bool:
+        """Return True if S3 client is configured and initialized."""
+        return self.client is not None
+
     @property
-    def client(self):
+    def client(self) -> Optional[Minio]:
         if self._client is None:
-            endpoint = current_app.config.get('MINIO_ENDPOINT')
-            access_key = current_app.config.get('MINIO_ACCESS_KEY')
-            secret_key = current_app.config.get('MINIO_SECRET_KEY')
-            secure = current_app.config.get('MINIO_SECURE', False)
-            self._bucket_name = current_app.config.get('MINIO_BUCKET_NAME', 'ecom-uploads')
-            
+            try:
+                endpoint = current_app.config.get('MINIO_ENDPOINT')
+                access_key = current_app.config.get('MINIO_ACCESS_KEY')
+                secret_key = current_app.config.get('MINIO_SECRET_KEY')
+                secure = current_app.config.get('MINIO_SECURE', False)
+                self._bucket_name = current_app.config.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+            except Exception:
+                endpoint = os.environ.get('MINIO_ENDPOINT')
+                access_key = os.environ.get('MINIO_ACCESS_KEY')
+                secret_key = os.environ.get('MINIO_SECRET_KEY')
+                secure = os.environ.get('MINIO_SECURE', 'False').lower() in ('true', '1', 't')
+                self._bucket_name = os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+
             if not all([endpoint, access_key, secret_key]):
-                logger.warning("MinIO credentials not fully configured. S3 Storage Client disabled.")
+                logger.warning("S3 credentials not fully configured. Object storage client disabled.")
                 return None
                 
             try:
-                # Setup MinIO S3 client
+                # Clean and normalize S3/R2 endpoint string
+                clean_endpoint = str(endpoint).strip()
+                if clean_endpoint.startswith(('http://', 'https://')):
+                    secure = clean_endpoint.startswith('https://')
+                    clean_endpoint = clean_endpoint.split('://', 1)[1]
+                clean_endpoint = clean_endpoint.rstrip('/')
+
+                # Setup MinIO S3 client (compatible with R2, S3, MinIO, Supabase)
                 self._client = Minio(
-                    endpoint,
+                    clean_endpoint,
                     access_key=access_key,
                     secret_key=secret_key,
                     secure=secure
                 )
                 # Ensure bucket exists
-                if not self._client.bucket_exists(self._bucket_name):
-                    self._client.make_bucket(self._bucket_name)
-                    logger.info(f"Created MinIO S3 bucket: {self._bucket_name}")
+                self.ensure_bucket()
             except Exception as e:
-                logger.error(f"Failed to initialize MinIO client: {e}")
+                logger.error(f"Failed to initialize S3 client: {e}")
                 self._client = None
         return self._client
 
     @property
-    def bucket_name(self):
+    def bucket_name(self) -> str:
         # Trigger client resolution to populate bucket name
-        self.client
-        return self._bucket_name
+        _ = self.client
+        return self._bucket_name or 'ecom-uploads'
 
-    def upload_file_stream(self, stream, object_name, content_type=None):
+    def ensure_bucket(self) -> bool:
+        """Ensure the configured bucket exists, creating it if permitted and missing."""
+        if self._client is None:
+            return False
+        try:
+            if not self._client.bucket_exists(self._bucket_name):
+                self._client.make_bucket(self._bucket_name)
+                logger.info(f"Created object storage bucket: {self._bucket_name}")
+            return True
+        except Exception as e:
+            logger.warning(f"Could not verify or create bucket {self._bucket_name}: {e}")
+            return True  # Return True if bucket creation failed due to permission restriction on existing bucket
+
+    def upload_file_stream(self, stream, object_name: str, content_type: Optional[str] = None) -> str:
+        """Upload a file stream to object storage with sanitized object key."""
+        clean_key = sanitize_object_key(object_name)
         cli = self.client
         if cli is None:
-            raise RuntimeError("MinIO client is not initialized.")
+            raise RuntimeError("Persistent storage client is not configured or initialized.")
             
-        # Get stream size safely
         stream.seek(0, io.SEEK_END)
         size = stream.tell()
         stream.seek(0)
         
         cli.put_object(
             self.bucket_name,
-            object_name,
+            clean_key,
             stream,
             size,
             content_type=content_type or 'application/octet-stream'
         )
-        logger.info(f"Uploaded {object_name} to MinIO S3 (Size: {size} bytes)")
-        return object_name
+        logger.info(f"Uploaded {clean_key} to object storage (Size: {size} bytes)")
+        return clean_key
 
-    def get_file(self, object_name):
+    def upload_bytes(self, data: bytes, object_name: str, content_type: Optional[str] = None) -> str:
+        """Upload a byte buffer directly to object storage."""
+        buf = io.BytesIO(data)
+        return self.upload_file_stream(buf, object_name, content_type=content_type)
+
+    def get_file(self, object_name: str):
+        """Retrieve object response stream and stat from storage."""
+        clean_key = sanitize_object_key(object_name)
         cli = self.client
         if cli is None:
-            raise RuntimeError("MinIO client is not initialized.")
+            raise RuntimeError("Persistent storage client is not configured or initialized.")
         try:
-            response = cli.get_object(self.bucket_name, object_name)
-            stat = cli.stat_object(self.bucket_name, object_name)
+            response = cli.get_object(self.bucket_name, clean_key)
+            stat = cli.stat_object(self.bucket_name, clean_key)
             return response, stat
         except Exception as e:
-            logger.error(f"Error fetching {object_name} from MinIO: {e}")
+            logger.error(f"Error fetching {clean_key} from object storage: {e}")
             raise
 
-    def delete_file(self, object_name):
+    def file_exists(self, object_name: str) -> bool:
+        """Check if object exists in storage bucket."""
+        clean_key = sanitize_object_key(object_name)
         cli = self.client
         if cli is None:
             return False
         try:
-            cli.remove_object(self.bucket_name, object_name)
-            logger.info(f"Deleted {object_name} from MinIO S3")
+            cli.stat_object(self.bucket_name, clean_key)
+            return True
+        except Exception:
+            return False
+
+    def delete_file(self, object_name: str) -> bool:
+        """Safely delete object from storage bucket. Does not crash if object is missing."""
+        clean_key = sanitize_object_key(object_name)
+        cli = self.client
+        if cli is None:
+            return False
+        try:
+            cli.remove_object(self.bucket_name, clean_key)
+            logger.info(f"Deleted {clean_key} from object storage")
             return True
         except Exception as e:
-            logger.error(f"Error deleting {object_name} from MinIO S3: {e}")
+            logger.error(f"Error deleting {clean_key} from object storage: {e}")
             return False
+
+    def get_public_url(self, object_name: str) -> str:
+        """Return public CDN/storage URL or fallback route for an object key."""
+        clean_key = sanitize_object_key(object_name)
+        try:
+            pub_base = current_app.config.get('STORAGE_PUBLIC_URL', '').rstrip('/')
+        except Exception:
+            pub_base = os.environ.get('STORAGE_PUBLIC_URL', '').rstrip('/')
+
+        if pub_base:
+            return f"{pub_base}/{clean_key}"
+        return f"/static/uploads/{clean_key}"
 
 storage_service = StorageService()
 
+def resolve_image_url(path_or_key: Optional[str], default_category: Optional[str] = None) -> str:
+    """
+    Resolve legacy paths, absolute URLs, and cloud object keys to accessible browser URLs.
+    """
+    if not path_or_key:
+        return '/static/uploads/placeholder.jpg'
+        
+    s = str(path_or_key).strip()
+    
+    if s.startswith(('http://', 'https://')):
+        return s
+
+    if s.startswith('private/'):
+        return f"/private/file/{s}"
+
+    if s.startswith('/static/uploads/'):
+        return s
+
+    if '/' not in s:
+        # Legacy filename reference e.g. img_1_foo.jpg
+        cat = (default_category or 'products').strip('/')
+        return f"/static/uploads/{cat}/{s}"
+
+    # Standard cloud object key e.g. products/uuid.webp
+    return storage_service.get_public_url(s)
+
+def upload_file_field(file_obj, category: str, is_private: bool = False) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Upload a Werkzeug FileStorage object using safe UUID object key & image optimization.
+    Returns (object_key, error_message).
+    """
+    if not file_obj or not getattr(file_obj, 'filename', None):
+        return None, None
+        
+    filename = file_obj.filename
+    content_type = getattr(file_obj, 'content_type', '') or ''
+    
+    cat_prefix = f"private/{category}" if is_private else category
+    
+    file_obj.stream.seek(0)
+    raw_data = file_obj.stream.read()
+    file_obj.stream.seek(0)
+    
+    is_img = content_type.startswith('image/') or any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'])
+    
+    ext = None
+    upload_bytes_data = raw_data
+    mime = content_type or 'application/octet-stream'
+    
+    if is_img:
+        try:
+            opt_bytes, opt_mime, opt_ext = optimize_image_bytes(raw_data)
+            upload_bytes_data = opt_bytes
+            mime = opt_mime
+            ext = opt_ext
+        except Exception as err:
+            logger.warning(f"Optimization skipped for {filename}: {err}")
+            
+    object_key = generate_object_key(cat_prefix, filename, extension=ext)
+    
+    if storage_service.is_available():
+        storage_service.upload_bytes(upload_bytes_data, object_key, content_type=mime)
+        return object_key, None
+    else:
+        try:
+            allow_fallback = current_app.config.get('ALLOW_LOCAL_STORAGE_FALLBACK', True)
+        except Exception:
+            allow_fallback = True
+            
+        if not allow_fallback:
+            err = f"Persistent object storage is unavailable and local fallback is disabled."
+            logger.error(err)
+            return None, err
+            
+        try:
+            local_target = os.path.join(current_app.config['UPLOAD_FOLDER'], object_key.replace('/', os.sep))
+            os.makedirs(os.path.dirname(local_target), exist_ok=True)
+            with open(local_target, 'wb') as f:
+                f.write(upload_bytes_data)
+            logger.info(f"Local storage fallback saved: {object_key}")
+            return object_key, None
+        except Exception as e:
+            return None, f"Failed to save upload locally: {e}"
+
 def sync_local_uploads_to_minio():
     """
-    Walk through local 'static/uploads' and upload files to MinIO.
-    This guarantees that mock seeded files and previous uploads are copied over.
+    Walk through local 'static/uploads' and upload files to object storage.
+    Guarantees pre-existing local files are copied over to cloud bucket.
     """
     cli = storage_service.client
     if cli is None:
-        logger.info("MinIO client not configured. Skipping uploads sync.")
+        logger.info("Object storage client not configured. Skipping uploads sync.")
         return
         
-    uploads_dir = current_app.config.get('UPLOAD_FOLDER')
+    try:
+        uploads_dir = current_app.config.get('UPLOAD_FOLDER')
+    except Exception:
+        uploads_dir = None
+
     if not uploads_dir or not os.path.exists(uploads_dir):
         logger.info("Local upload folder does not exist. Skipping sync.")
         return
         
-    logger.info("Synchronizing local uploads folder to MinIO S3...")
+    logger.info("Synchronizing local uploads folder to object storage...")
     count = 0
     
     for root, _, files in os.walk(uploads_dir):
         for file in files:
             local_path = os.path.join(root, file)
-            # Find relative path from static/uploads directory
             rel_path = os.path.relpath(local_path, uploads_dir)
-            object_name = rel_path.replace('\\', '/')
+            object_name = sanitize_object_key(rel_path)
             
-            # Check if file exists in S3 bucket
-            exists = False
-            try:
-                cli.stat_object(storage_service.bucket_name, object_name)
-                exists = True
-            except Exception:
-                pass
-                
-            if not exists:
+            if not storage_service.file_exists(object_name):
                 try:
                     with open(local_path, 'rb') as f:
                         file_data = f.read()
-                        size = len(file_data)
                         
-                        import mimetypes
-                        mime, _ = mimetypes.guess_type(local_path)
-                        if mime is None:
-                            mime = 'application/octet-stream'
-                            
-                        cli.put_object(
-                            storage_service.bucket_name,
-                            object_name,
-                            io.BytesIO(file_data),
-                            size,
-                            content_type=mime
-                        )
-                        logger.info(f"[SYNC] Synced upload: {object_name}")
-                        count += 1
+                    import mimetypes
+                    mime, _ = mimetypes.guess_type(local_path)
+                    mime = mime or 'application/octet-stream'
+                    
+                    storage_service.upload_bytes(file_data, object_name, content_type=mime)
+                    logger.info(f"[SYNC] Synced upload: {object_name}")
+                    count += 1
                 except Exception as e:
                     logger.error(f"[SYNC] Failed to sync {object_name}: {e}")
                     

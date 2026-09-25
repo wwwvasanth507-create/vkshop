@@ -698,6 +698,7 @@ def order_pay(order_id):
     first_item = order.items[0]
     seller = StoreProfile.query.get(first_item.product.seller_id)
     
+    seller_name = seller.name if (seller and seller.name) else "VKshop Merchant"
     upi_id = seller.upi_id if (seller and seller.upi_id) else "admin@upi"
     seller_qr = seller.qr_code_path if (seller and seller.qr_code_path) else None
     
@@ -717,13 +718,11 @@ def order_pay(order_id):
             flash("UTR number, contact number, and payment screenshot are required.", "danger")
             return redirect(url_for('customer.order_pay', order_id=order.id))
             
-        from werkzeug.utils import secure_filename
-        from config import Config
-        import os
-        
-        os.makedirs(Config.USER_UPLOADS, exist_ok=True)
-        fn_screenshot = secure_filename(f"payment_{order.order_number}_{screenshot_file.filename}")
-        screenshot_file.save(os.path.join(Config.USER_UPLOADS, fn_screenshot))
+        from services.storage import upload_file_field
+        fn_screenshot, err = upload_file_field(screenshot_file, 'payment', is_private=True)
+        if err:
+            flash(f"Failed to upload payment proof screenshot: {err}", "danger")
+            return redirect(url_for('customer.order_pay', order_id=order.id))
         
         payment.transaction_id = utr
         payment.contact_number = contact
@@ -758,15 +757,14 @@ def file_complaint(order_id):
             flash("Please provide details of the complaint.", "danger")
             return redirect(url_for('customer.file_complaint', order_id=order.id))
             
-        from werkzeug.utils import secure_filename
-        from config import Config
-        import os
-        
         fn_screenshot = None
         if screenshot_file and screenshot_file.filename:
-            os.makedirs(Config.USER_UPLOADS, exist_ok=True)
-            fn_screenshot = secure_filename(f"complaint_{order.order_number}_{screenshot_file.filename}")
-            screenshot_file.save(os.path.join(Config.USER_UPLOADS, fn_screenshot))
+            from services.storage import upload_file_field
+            key, err = upload_file_field(screenshot_file, 'complaints', is_private=True)
+            if err:
+                flash(f"Failed to upload complaint screenshot: {err}", "danger")
+                return redirect(url_for('customer.file_complaint', order_id=order.id))
+            fn_screenshot = key
             
         from models import Complaint
         comp = Complaint(
