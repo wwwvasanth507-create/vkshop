@@ -200,6 +200,39 @@ def check_commission_suspension_job(app):
                 release_lock(client, "lock:commission_suspension_check")
 
 
+def keep_alive_self_ping_job(app):
+    """
+    Self-ping the public /health endpoint every 10 minutes to prevent Render Free Tier from sleeping.
+    Render edge proxy detects incoming HTTP requests to RENDER_EXTERNAL_URL / APP_URL and resets the 15-minute idle timeout.
+    """
+    import urllib.request
+    target_url = (
+        os.environ.get('APP_URL') or 
+        os.environ.get('RENDER_EXTERNAL_URL') or 
+        app.config.get('APP_URL')
+    )
+    if not target_url:
+        return
+
+    if not target_url.startswith(('http://', 'https://')):
+        target_url = f"https://{target_url}"
+
+    health_url = f"{target_url.rstrip('/')}/health"
+
+    try:
+        req = urllib.request.Request(
+            health_url,
+            headers={'User-Agent': 'VKShop-KeepAlive-Ping/1.0'}
+        )
+        with urllib.request.urlopen(req, timeout=15) as response:
+            if response.status == 200:
+                logger.info(f"[KEEP-ALIVE] Ping to {health_url} succeeded (status 200). Render spin-down prevented.")
+            else:
+                logger.warning(f"[KEEP-ALIVE] Ping to {health_url} returned status: {response.status}")
+    except Exception as e:
+        logger.warning(f"[KEEP-ALIVE] Ping to {health_url} failed: {e}")
+
+
 def init_scheduler(app):
     """
     Starts the background scheduler thread with the Flask application context.
@@ -234,5 +267,14 @@ def init_scheduler(app):
             args=[app],
             id="commission_suspension_check"
         )
+        # Keep-alive ping every 10 minutes to prevent Render Free Tier from sleeping (15-min idle timeout)
+        scheduler.add_job(
+            func=keep_alive_self_ping_job,
+            trigger="interval",
+            minutes=10,
+            args=[app],
+            id="keep_alive_self_ping"
+        )
         scheduler.start()
         logger.info("APScheduler Background Job Thread Started successfully.")
+

@@ -21,7 +21,11 @@ class Config:
         if ENV == 'production' and SECRET_KEY == 'dev_secret_key_amazon_flipkart_clone_99384':
             SECRET_KEY = secrets.token_hex(32)
             
+    # Public Application URL (used for keep-alive pings and canonical links)
+    APP_URL = os.environ.get('APP_URL') or os.environ.get('RENDER_EXTERNAL_URL')
+
     # Database Configuration
+
     DB_DIR = os.path.join(BASE_DIR, 'database')
     os.makedirs(DB_DIR, exist_ok=True)
     
