@@ -205,6 +205,16 @@ def init_db(app):
             except Exception:
                 db.session.rollback()
 
+        # Step 4: Automatically bootstrap/repair default admin account on deployment/startup
+        try:
+            from scripts.create_admin import bootstrap_admin
+            bootstrap_admin(app)
+            logger.info("[DB INIT] Automatic admin bootstrap check completed successfully.")
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"[DB INIT] Automatic admin bootstrap error: {e}")
+
+
 
 
 

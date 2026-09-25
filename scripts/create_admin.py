@@ -9,7 +9,7 @@ from database import db
 from models import User, Role
 
 
-def bootstrap_admin(app=None):
+def bootstrap_admin(app=None, raise_on_error=False):
     """
     Safely bootstrap or repair the primary admin account in PostgreSQL/SQLite.
     Idempotent and safe to run multiple times. Does NOT call db.drop_all() or modify schema.
@@ -54,12 +54,17 @@ def bootstrap_admin(app=None):
                 admin_user.set_password('admin123')
                 db.session.commit()
                 print("SUCCESS: Existing admin account updated and repaired successfully (username: admin, email: admin@vkshop.com).")
-
+            return True
         except Exception as e:
             db.session.rollback()
             print(f"ERROR: Failed to bootstrap admin account: {e}")
-            sys.exit(1)
+            if raise_on_error:
+                raise
+            return False
 
 
 if __name__ == '__main__':
-    bootstrap_admin()
+    success = bootstrap_admin()
+    if not success:
+        sys.exit(1)
+
