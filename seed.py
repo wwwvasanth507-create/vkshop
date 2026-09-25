@@ -31,47 +31,6 @@ def seed_database():
         admin.set_password('admin123')
         db.session.add(admin)
         
-        # 1.5 Seed 3000 Random Customers
-        import random
-        from werkzeug.security import generate_password_hash
-        first_names = ["John", "Jane", "Alice", "Bob", "Charlie", "David", "Emma", "Fiona", "George", "Hannah", "Ian", "Julia", "Kevin", "Laura", "Michael", "Nina", "Oscar", "Sarah", "Thomas", "Ursula", "Victor", "Wendy", "Xavier", "Yvonne", "Zach"]
-        last_names = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White", "Harris"]
-        default_hash = generate_password_hash("CustPassword123")
-        
-        print("Generating 3000 random customer accounts...")
-        users = []
-        used_usernames = set()
-        used_emails = set()
-        for _ in range(3000):
-            while True:
-                first = random.choice(first_names)
-                last = random.choice(last_names)
-                suffix = random.randint(1000, 999999)
-                username = f"{first.lower()}_{last.lower()}_{suffix}"
-                email = f"{username}@gmail.com"
-                if username not in used_usernames and email not in used_emails:
-                    used_usernames.add(username)
-                    used_emails.add(email)
-                    break
-            
-            user = User(
-                username=username,
-                email=email,
-                password_hash=default_hash,
-                role=Role.CUSTOMER,
-                is_active=True,
-                email_verified=True
-            )
-            users.append(user)
-            if len(users) >= 500:
-                db.session.bulk_save_objects(users)
-                db.session.commit()
-                users = []
-        if users:
-            db.session.bulk_save_objects(users)
-            db.session.commit()
-        print("Successfully seeded 3000 customer accounts.")
-        
         # 2. Seed System Settings
         settings_to_seed = {
             'TAX_GST_PERCENTAGE': '18.0',

@@ -53,15 +53,24 @@ class Config:
             'pool_pre_ping': True
         }
     
-    # Redis Session Config
+    # Redis Session Config with Fallback
     SESSION_TYPE = os.environ.get('SESSION_TYPE', 'redis')
     if SESSION_TYPE == 'redis':
         import redis
         REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
-        SESSION_REDIS = redis.from_url(REDIS_URL)
-        SESSION_USE_SIGNER = True
-        SESSION_PERMANENT = True
-        SESSION_KEY_PREFIX = 'ecom_sess:'
+        try:
+            r = redis.from_url(REDIS_URL, socket_timeout=1)
+            r.ping()
+            SESSION_REDIS = r
+            SESSION_USE_SIGNER = True
+            SESSION_PERMANENT = True
+            SESSION_KEY_PREFIX = 'ecom_sess:'
+        except Exception:
+            SESSION_TYPE = 'filesystem'
+            SESSION_FILE_DIR = os.path.join(BASE_DIR, 'database', 'sessions')
+            os.makedirs(SESSION_FILE_DIR, exist_ok=True)
+            SESSION_PERMANENT = True
+
         
     # Rate Limiting Settings
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'memory://')
