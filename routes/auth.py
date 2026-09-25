@@ -24,6 +24,9 @@ def log_audit(user, action, details=None):
     except Exception:
         db.session.rollback()
 
+import logging
+logger = logging.getLogger('auth')
+
 @auth_bp.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -36,125 +39,148 @@ def register():
         confirm_password = request.form.get('confirm_password', '')
         role = request.form.get('role', 'customer')
         
-        if not username or not email or not password:
-            flash('All fields are required.', 'danger')
-            return render_template('auth/register.html')
-            
-        if password != confirm_password:
-            flash('Passwords do not match.', 'danger')
-            return render_template('auth/register.html')
-            
-        if len(password) < 6:
-            flash('Password must be at least 6 characters long.', 'danger')
-            return render_template('auth/register.html')
-            
-        # Check if user exists
-        if User.query.filter((User.username == username) | (User.email == email)).first():
-            flash('Username or Email already registered.', 'danger')
-            return render_template('auth/register.html')
-            
-        # If Seller, validate documents
-        seller_docs = {}
-        if role == Role.SELLER:
-            aadhaar_number = request.form.get('aadhaar_number', '').strip()
-            agreed = True if request.form.get('agreed') else False
-            
-            aadhaar_front_file = request.files.get('aadhaar_front')
-            aadhaar_back_file = request.files.get('aadhaar_back')
-            photo_file = request.files.get('photo')
-            sig_file = request.files.get('signature')
-            
-            if not aadhaar_number or not agreed or not aadhaar_front_file or not aadhaar_back_file or not photo_file or not sig_file:
-                flash('All seller verification documents and the legal agreement are required.', 'danger')
-                return render_template('auth/register.html')
-            
-            # ========== AADHAAR DUPLICATE/BANNED VALIDATION ==========
-            # Check if this Aadhaar number belongs to a seller who is disabled, blocked, or banned
-            existing_seller_with_aadhaar = StoreProfile.query.filter_by(aadhaar_number=aadhaar_number).first()
-            if existing_seller_with_aadhaar:
-                # Check if that seller's account is disabled/blocked/banned
-                seller_user = User.query.get(existing_seller_with_aadhaar.user_id)
-                if seller_user and (not seller_user.is_active or seller_user.is_suspended or existing_seller_with_aadhaar.status in ['Suspended', 'Rejected']):
-                    flash('Seller details are banned.', 'danger')
-                    return render_template('auth/register.html')
-            
-            from services.storage import upload_file_field, storage_service
-            doc_category = f"seller-documents/{username}"
-            
-            fn_front, err1 = upload_file_field(aadhaar_front_file, doc_category, is_private=True)
-            fn_back, err2 = upload_file_field(aadhaar_back_file, doc_category, is_private=True)
-            fn_photo, err3 = upload_file_field(photo_file, doc_category, is_private=True)
-            fn_sig, err4 = upload_file_field(sig_file, doc_category, is_private=True)
-            
-            first_err = err1 or err2 or err3 or err4
-            if first_err:
-                for k in [fn_front, fn_back, fn_photo, fn_sig]:
-                    if k:
-                        storage_service.delete_file(k)
-                flash(f"Seller document upload failed: {first_err}", 'danger')
-                return render_template('auth/register.html')
-            
-            seller_docs = {
-                'aadhaar_number': aadhaar_number,
-                'aadhaar_front': fn_front,
-                'aadhaar_back': fn_back,
-                'photo': fn_photo,
-                'signature': fn_sig,
-                'agreed_to_terms': True
-            }
+        logger.info(f"[REGISTRATION ATTEMPT] Username: '{username}', Email: '{email}', Role: '{role}'")
 
-        # Create User
-        new_user = User(username=username, email=email, role=role, is_active=True)
-        new_user.set_password(password)
-        db.session.add(new_user)
-        db.session.commit()
-        
-        # If Seller, create Store Profile
-        if role == Role.SELLER:
-            store = StoreProfile(
-                user_id=new_user.id,
-                name=f"{username}'s Store",
-                description="Welcome to my new e-commerce store!",
-                balance=0.0,
-                status='Pending',
-                **seller_docs
-            )
-            db.session.add(store)
-            db.session.commit()
+        try:
+            if not username or not email or not password:
+                flash('All fields are required.', 'danger')
+                return render_template('auth/register.html'), 400
+                
+            if password != confirm_password:
+                flash('Passwords do not match.', 'danger')
+                return render_template('auth/register.html'), 400
+                
+            if len(password) < 6:
+                flash('Password must be at least 6 characters long.', 'danger')
+                return render_template('auth/register.html'), 400
+                
+            # Check if user exists
+            if User.query.filter((User.username == username) | (User.email == email)).first():
+                flash('Username or Email already registered.', 'danger')
+                return render_template('auth/register.html'), 400
+                
+            # If Seller, validate documents
+            uploaded_keys = []
+            seller_docs = {}
+            if role == Role.SELLER:
+                aadhaar_number = request.form.get('aadhaar_number', '').strip()
+                agreed = True if request.form.get('agreed') else False
+                
+                aadhaar_front_file = request.files.get('aadhaar_front')
+                aadhaar_back_file = request.files.get('aadhaar_back')
+                photo_file = request.files.get('photo')
+                sig_file = request.files.get('signature')
+                
+                if not aadhaar_number or not agreed or \
+                   not aadhaar_front_file or not aadhaar_front_file.filename or \
+                   not aadhaar_back_file or not aadhaar_back_file.filename or \
+                   not photo_file or not photo_file.filename or \
+                   not sig_file or not sig_file.filename:
+                    flash('All seller verification documents and the legal agreement are required.', 'danger')
+                    return render_template('auth/register.html'), 400
+                
+                # Check Aadhaar duplicate/banned status
+                existing_seller_with_aadhaar = StoreProfile.query.filter_by(aadhaar_number=aadhaar_number).first()
+                if existing_seller_with_aadhaar:
+                    seller_user = User.query.get(existing_seller_with_aadhaar.user_id)
+                    if seller_user and (not seller_user.is_active or seller_user.is_suspended or existing_seller_with_aadhaar.status in ['Suspended', 'Rejected']):
+                        flash('Seller details are banned.', 'danger')
+                        return render_template('auth/register.html'), 400
+                
+                from services.storage import upload_file_field, storage_service
+                doc_category = f"seller-documents/{username}"
+                
+                file_map = [
+                    ('aadhaar_front', aadhaar_front_file),
+                    ('aadhaar_back', aadhaar_back_file),
+                    ('photo', photo_file),
+                    ('signature', sig_file)
+                ]
+                
+                for field_name, file_obj in file_map:
+                    logger.info(f"[SELLER REG UPLOAD START] Username: {username}, Field: {field_name}, Original File: {file_obj.filename}")
+                    key, err = upload_file_field(file_obj, doc_category, is_private=True)
+                    if err or not key:
+                        logger.error(f"[SELLER REG UPLOAD FAIL] Username: {username}, Field: {field_name}, Error: {err}")
+                        # Cleanup all previously uploaded R2 keys
+                        for uploaded_k in uploaded_keys:
+                            try:
+                                storage_service.delete_file(uploaded_k)
+                            except Exception:
+                                pass
+                        flash(f"Seller document upload failed ({field_name}): {err or 'Unknown upload error'}", 'danger')
+                        return render_template('auth/register.html'), 400
+                    
+                    uploaded_keys.append(key)
+                    seller_docs[field_name] = key
+                    logger.info(f"[SELLER REG UPLOAD SUCCESS] Username: {username}, Field: {field_name} -> Object Key: {key}")
+                
+                seller_docs['aadhaar_number'] = aadhaar_number
+                seller_docs['agreed_to_terms'] = True
+
+            # Atomic Database Transaction: Create User + Store Profile together
+            new_user = User(username=username, email=email, role=role, is_active=True)
+            new_user.set_password(password)
+            db.session.add(new_user)
+            db.session.flush()  # Obtains generated new_user.id
             
-        # If Customer, check optional delivery address
-        if role == Role.CUSTOMER:
-            door_no = request.form.get('door_no', '').strip()
-            if door_no:
-                from models import Address
-                addr = Address(
+            if role == Role.SELLER:
+                store = StoreProfile(
                     user_id=new_user.id,
-                    title="Default Home",
-                    fullName=username,
-                    addressLine1=f"{door_no}, {request.form.get('street', '')}",
-                    addressLine2=request.form.get('landmark', ''),
-                    city=request.form.get('village_city', ''),
-                    state=request.form.get('state', ''),
-                    postalCode=request.form.get('pin_code', ''),
-                    country=request.form.get('country', 'India'),
-                    phone=request.form.get('contact_number', ''),
-                    is_default=True,
-                    door_no=door_no,
-                    street=request.form.get('street', ''),
-                    village_city=request.form.get('village_city', ''),
-                    post_name=request.form.get('post_name', ''),
-                    taluk_name=request.form.get('taluk_name', ''),
-                    district=request.form.get('district', ''),
-                    landmark=request.form.get('landmark', ''),
-                    contact_number=request.form.get('contact_number', '')
+                    name=f"{username}'s Store",
+                    description="Welcome to my new e-commerce store!",
+                    balance=0.0,
+                    status='Pending',
+                    **seller_docs
                 )
-                db.session.add(addr)
-                db.session.commit()
-            
-        log_audit(new_user, "REGISTER", f"Registered as role: {role}")
-        flash('Registration successful! Please login.', 'success')
-        return redirect(url_for('auth.login'))
-        
+                db.session.add(store)
+                
+            if role == Role.CUSTOMER:
+                door_no = request.form.get('door_no', '').strip()
+                if door_no:
+                    from models import Address
+                    addr = Address(
+                        user_id=new_user.id,
+                        title="Default Home",
+                        fullName=username,
+                        addressLine1=f"{door_no}, {request.form.get('street', '')}",
+                        addressLine2=request.form.get('landmark', ''),
+                        city=request.form.get('village_city', ''),
+                        state=request.form.get('state', ''),
+                        postalCode=request.form.get('pin_code', ''),
+                        country=request.form.get('country', 'India'),
+                        phone=request.form.get('contact_number', ''),
+                        is_default=True,
+                        door_no=door_no,
+                        street=request.form.get('street', ''),
+                        village_city=request.form.get('village_city', ''),
+                        post_name=request.form.get('post_name', ''),
+                        taluk_name=request.form.get('taluk_name', ''),
+                        district=request.form.get('district', ''),
+                        landmark=request.form.get('landmark', ''),
+                        contact_number=request.form.get('contact_number', '')
+                    )
+                    db.session.add(addr)
+
+            db.session.commit()
+            log_audit(new_user, "REGISTER", f"Registered as role: {role}")
+            logger.info(f"[REGISTRATION COMPLETE] User ID: {new_user.id}, Username: {username}, Role: {role}")
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('auth.login'))
+
+        except Exception as ex:
+            db.session.rollback()
+            if 'uploaded_keys' in locals():
+                from services.storage import storage_service
+                for uploaded_k in uploaded_keys:
+                    try:
+                        storage_service.delete_file(uploaded_k)
+                    except Exception:
+                        pass
+            logger.exception(f"[REGISTRATION CRASH] Error during registration for '{username}': {ex}")
+            flash('Registration failed due to a server error. Please try again.', 'danger')
+            return render_template('auth/register.html'), 500
+
     return render_template('auth/register.html')
 
 @auth_bp.route('/login', methods=['GET', 'POST'])

@@ -71,7 +71,7 @@ def optimize_image_bytes(
     - Validates image header and format (rejects corrupt images/decompression bombs/executable scripts/HTML/SVG).
     - Respects EXIF orientation.
     - Resizes image proportionally if dimensions exceed max_width/max_height (without upscaling).
-    - Converts photographic images to WebP format by default.
+    - Converts photographic images to WebP format by default with fast compression (method=0).
     - Preserves RGBA transparency if present.
     
     Returns:
@@ -79,13 +79,13 @@ def optimize_image_bytes(
     """
     # Resolve configuration options
     try:
-        max_w = max_width or current_app.config.get('IMAGE_MAX_WIDTH', 1600)
-        max_h = max_height or current_app.config.get('IMAGE_MAX_HEIGHT', 1600)
-        q = quality or current_app.config.get('IMAGE_WEBP_QUALITY', 82)
+        max_w = max_width or current_app.config.get('IMAGE_MAX_WIDTH', 1200)
+        max_h = max_height or current_app.config.get('IMAGE_MAX_HEIGHT', 1200)
+        q = quality or current_app.config.get('IMAGE_WEBP_QUALITY', 80)
     except Exception:
-        max_w = max_width or 1600
-        max_h = max_height or 1600
-        q = quality or 82
+        max_w = max_width or 1200
+        max_h = max_height or 1200
+        q = quality or 80
 
     # Read input into BytesIO buffer
     if isinstance(image_input, bytes):
@@ -131,11 +131,11 @@ def optimize_image_bytes(
 
             if fmt == 'WEBP':
                 if img.mode in ('RGBA', 'LA') or (img.mode == 'P' and 'transparency' in img.info):
-                    img.save(output_buf, format='WEBP', quality=q, method=4)
+                    img.save(output_buf, format='WEBP', quality=q, method=0)
                 else:
                     if img.mode != 'RGB':
                         img = img.convert('RGB')
-                    img.save(output_buf, format='WEBP', quality=q, method=4)
+                    img.save(output_buf, format='WEBP', quality=q, method=0)
                 content_type = 'image/webp'
                 ext = '.webp'
             elif fmt in ('JPEG', 'JPG'):
@@ -152,6 +152,7 @@ def optimize_image_bytes(
                 raise ValueError(f"Unsupported target format: {fmt}")
 
             return output_buf.getvalue(), content_type, ext
+
 
     except Exception as e:
         logger.error(f"Image validation or optimization failed: {e}")
@@ -349,6 +350,18 @@ def upload_file_field(file_obj, category: str, is_private: bool = False) -> Tupl
     file_obj.stream.seek(0)
     raw_data = file_obj.stream.read()
     file_obj.stream.seek(0)
+
+    # Validate file size (10MB limit)
+    MAX_FILE_SIZE = 10 * 1024 * 1024
+    if len(raw_data) > MAX_FILE_SIZE:
+        err_msg = f"File '{filename}' ({len(raw_data)} bytes) exceeds maximum size limit of 10MB."
+        logger.warning(f"[UPLOAD] {err_msg}")
+        return None, err_msg
+
+    if len(raw_data) == 0:
+        err_msg = f"Uploaded file '{filename}' is empty (0 bytes)."
+        logger.warning(f"[UPLOAD] {err_msg}")
+        return None, err_msg
     
     is_img = content_type.startswith('image/') or any(filename.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'])
     
@@ -363,13 +376,23 @@ def upload_file_field(file_obj, category: str, is_private: bool = False) -> Tupl
             mime = opt_mime
             ext = opt_ext
         except Exception as err:
-            logger.warning(f"Optimization skipped for {filename}: {err}")
+            logger.warning(f"[UPLOAD] Image optimization skipped for {filename}: {err}")
+            _, raw_ext = os.path.splitext(filename or '')
+            ext = raw_ext.strip().lower() or '.bin'
+    else:
+        _, raw_ext = os.path.splitext(filename or '')
+        ext = raw_ext.strip().lower() or '.bin'
             
     object_key = generate_object_key(cat_prefix, filename, extension=ext)
     
     if storage_service.is_available():
-        storage_service.upload_bytes(upload_bytes_data, object_key, content_type=mime)
-        return object_key, None
+        try:
+            storage_service.upload_bytes(upload_bytes_data, object_key, content_type=mime)
+            logger.info(f"[UPLOAD SUCCESS] Key: {object_key}, Size: {len(upload_bytes_data)} bytes, MIME: {mime}")
+            return object_key, None
+        except Exception as e:
+            logger.error(f"[UPLOAD ERROR] Failed to upload {object_key} to storage: {e}")
+            return None, f"Failed to upload file to storage: {e}"
     else:
         try:
             allow_fallback = current_app.config.get('ALLOW_LOCAL_STORAGE_FALLBACK', True)
@@ -390,6 +413,7 @@ def upload_file_field(file_obj, category: str, is_private: bool = False) -> Tupl
             return object_key, None
         except Exception as e:
             return None, f"Failed to save upload locally: {e}"
+
 
 def sync_local_uploads_to_minio():
     """
