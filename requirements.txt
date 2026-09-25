@@ -18,3 +18,4 @@ bcrypt
 python-dotenv
 flask-socketio
 gunicorn
+psycopg[binary]>=3.2,<4
