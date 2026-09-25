@@ -77,6 +77,8 @@ def optimize_image_bytes(
     Returns:
         Tuple of (optimized_bytes, content_type, file_extension)
     """
+    import time
+    start_t = time.time()
     # Resolve configuration options
     try:
         max_w = max_width or current_app.config.get('IMAGE_MAX_WIDTH', 1200)
@@ -151,7 +153,10 @@ def optimize_image_bytes(
             else:
                 raise ValueError(f"Unsupported target format: {fmt}")
 
-            return output_buf.getvalue(), content_type, ext
+            duration_ms = int((time.time() - start_t) * 1000)
+            res_bytes = output_buf.getvalue()
+            logger.info(f"[IMAGE_OPTIMIZE] Processed in {duration_ms}ms ({w}x{h} -> {img.size[0]}x{img.size[1]}, Size: {len(res_bytes)} bytes)")
+            return res_bytes, content_type, ext
 
 
     except Exception as e:
@@ -196,11 +201,18 @@ class StorageService:
                 clean_endpoint = clean_endpoint.rstrip('/')
 
                 # Setup MinIO S3 client (compatible with R2, S3, MinIO, Supabase)
+                import urllib3
+                http_client = urllib3.PoolManager(
+                    timeout=urllib3.Timeout(connect=5.0, read=15.0),
+                    maxsize=10,
+                    retries=urllib3.Retry(total=2, backoff_factor=0.5)
+                )
                 self._client = Minio(
                     clean_endpoint,
                     access_key=access_key,
                     secret_key=secret_key,
-                    secure=secure
+                    secure=secure,
+                    http_client=http_client
                 )
                 # Ensure bucket exists
                 self.ensure_bucket()
@@ -308,31 +320,68 @@ class StorageService:
 
 storage_service = StorageService()
 
-def resolve_image_url(path_or_key: Optional[str], default_category: Optional[str] = None) -> str:
+def normalize_storage_key(value: Optional[str]) -> Optional[str]:
     """
-    Resolve legacy paths, absolute URLs, and cloud object keys to accessible browser URLs.
+    Idempotently convert legacy filesystem paths, absolute paths, and wrapped keys
+    into clean R2 object keys.
+    Examples:
+        /static/uploads/users/private/seller-documents/seller1/a.webp -> private/seller-documents/seller1/a.webp
+        static/uploads/products/a.webp -> products/a.webp
+        users/private/seller-documents/seller1/a.webp -> private/seller-documents/seller1/a.webp
     """
-    if not path_or_key:
+    if not value:
+        return None
+    s = str(value).strip().replace('\\', '/')
+    if not s or s.startswith(('http://', 'https://')):
+        return value
+
+    # Remove Windows drive letters e.g. C:
+    s = re.sub(r'^[a-zA-Z]:', '', s)
+
+    # Strip legacy local filesystem prefixes
+    for prefix in ['/static/uploads/', 'static/uploads/', '/uploads/', 'uploads/', '/tmp/uploads/', 'tmp/uploads/']:
+        if s.startswith(prefix):
+            s = s[len(prefix):]
+            break
+
+    if s.startswith('users/private/'):
+        s = s[len('users/'):]
+    elif 'private/' in s and not s.startswith('private/'):
+        idx = s.find('private/')
+        s = s[idx:]
+
+    parts = [p for p in s.split('/') if p and p not in ('.', '..')]
+    return '/'.join(parts) if parts else None
+
+def resolve_image_url(value: Optional[str], default_category: Optional[str] = None, private: bool = False) -> str:
+    """
+    Authoritative resolution of stored keys/paths to browser-accessible URLs.
+    Supports public R2 URLs, authenticated private routes, complete HTTPS links, and fallback defaults.
+    """
+    if not value:
         return '/static/uploads/placeholder.jpg'
-        
-    s = str(path_or_key).strip()
-    
+
+    s = str(value).strip()
     if s.startswith(('http://', 'https://')):
         return s
 
-    if s.startswith('private/'):
-        return f"/private/file/{s}"
+    key = normalize_storage_key(s)
+    if not key:
+        return '/static/uploads/placeholder.jpg'
 
-    if s.startswith('/static/uploads/'):
-        return s
+    # Route private documents through authenticated Flask endpoint
+    if private or key.startswith('private/'):
+        if not key.startswith('private/'):
+            key = f"private/{key}"
+        return f"/private/file/{key}"
 
-    if '/' not in s:
-        # Legacy filename reference e.g. img_1_foo.jpg
+    # Legacy filename reference e.g. img_1_foo.jpg without folder
+    if '/' not in key:
         cat = (default_category or 'products').strip('/')
-        return f"/static/uploads/{cat}/{s}"
+        key = f"{cat}/{key}"
 
-    # Standard cloud object key e.g. products/uuid.webp
-    return storage_service.get_public_url(s)
+    return storage_service.get_public_url(key)
+
 
 def upload_file_field(file_obj, category: str, is_private: bool = False) -> Tuple[Optional[str], Optional[str]]:
     """

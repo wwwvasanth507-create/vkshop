@@ -10,19 +10,19 @@
     <!-- Left: Gallery Media -->
     <div class="product-gallery">
         <div class="gallery-main" id="gallery-main-container">
-            <img src="/static/uploads/products/{{ product.main_image }}" id="main-image-el" alt="{{ product.name }}">
+            <img src="{{ resolve_image_url(product.main_image, default_category='products') }}" id="main-image-el" alt="{{ product.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
         </div>
         
         <div class="gallery-thumbs">
             <!-- Main thumbnail -->
-            <div class="gallery-thumb active" data-large="/static/uploads/products/{{ product.main_image }}">
-                <img src="/static/uploads/products/{{ product.main_image }}" alt="Thumbnail Main">
+            <div class="gallery-thumb active" data-large="{{ resolve_image_url(product.main_image, default_category='products') }}">
+                <img src="{{ resolve_image_url(product.main_image, default_category='products') }}" alt="Thumbnail Main" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             </div>
             <!-- Extra image thumbnails -->
             {% for img in product.images %}
                 {% if not img.is_primary %}
-                <div class="gallery-thumb" data-large="/static/uploads/products/{{ img.image_path }}">
-                    <img src="/static/uploads/products/{{ img.image_path }}" alt="Thumbnail Additional">
+                <div class="gallery-thumb" data-large="{{ resolve_image_url(img.image_path, default_category='products') }}">
+                    <img src="{{ resolve_image_url(img.image_path, default_category='products') }}" alt="Thumbnail Additional" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                 </div>
                 {% endif %}
             {% endfor %}
@@ -362,7 +362,7 @@
             <div class="product-card">
                 <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
                     <div class="product-card-img-wrapper">
-                        <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                        <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                     </div>
                     <div class="product-name">{{ prod.name }}</div>
                     <div class="product-price-row">

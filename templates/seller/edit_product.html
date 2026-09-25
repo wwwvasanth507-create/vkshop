@@ -101,7 +101,7 @@
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
                     {% for img in product.images %}
                         <div style="position: relative; border: 1px solid var(--border-color); border-radius: 4px; padding: 0.15rem; background-color: white;">
-                            <img src="/static/uploads/products/{{ img.image_path }}" style="width: 50px; height: 50px; object-fit: contain;">
+                            <img src="{{ resolve_image_url(img.image_path, default_category='products') }}" style="width: 50px; height: 50px; object-fit: contain;" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                             {% if img.is_primary %}
                                 <span style="position: absolute; bottom: 0; left: 0; right: 0; background-color: var(--success); color: white; font-size: 0.6rem; text-align: center; font-weight: 700;">Cover</span>
                             {% endif %}

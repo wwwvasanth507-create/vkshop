@@ -236,10 +236,27 @@ def keep_alive_self_ping_job(app):
 def init_scheduler(app):
     """
     Starts the background scheduler thread with the Flask application context.
+    Safely prevents duplicate scheduler execution across multi-worker Gunicorn processes.
     """
+    if os.environ.get('DISABLE_SCHEDULER', 'False').lower() in ('true', '1', 't'):
+        logger.info("Scheduler disabled via DISABLE_SCHEDULER environment variable.")
+        return
+
     # Prevent duplicate runs in dev server reloader
     if not os.environ.get('WERKZEUG_RUN_MAIN') == 'true' and app.debug:
         logger.info("Skipping scheduler in main thread to wait for reloader...")
+        return
+
+    # Process lock check to ensure single scheduler instance across multi-worker Gunicorn
+    try:
+        lock_file_path = os.path.join(app.config.get('BASE_DIR', '.'), 'database', 'scheduler_active.pid')
+        os.makedirs(os.path.dirname(lock_file_path), exist_ok=True)
+        if os.name != 'nt':
+            import fcntl
+            f = open(lock_file_path, 'w')
+            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (ImportError, IOError, OSError):
+        logger.info("Scheduler already active in another worker process. Skipping duplicate startup.")
         return
 
     if not scheduler.running:

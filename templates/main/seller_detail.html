@@ -9,7 +9,7 @@
     
     <div style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--bg-secondary); display: flex; align-items: center; justify-content: center; background-color: #fff; z-index: 2; overflow: hidden; box-shadow: var(--shadow-sm); margin-top: 15px; flex-shrink: 0;">
         {% if store.logo %}
-            <img src="/static/uploads/store/{{ store.logo }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ store.name }}">
+            <img src="{{ resolve_image_url(store.logo, default_category='stores/logo') }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ store.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
         {% else %}
             <i class="fa-solid fa-store" style="font-size: 2rem; color: var(--primary);"></i>
         {% endif %}
@@ -48,7 +48,7 @@
         </button>
         <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
             <div class="product-card-img-wrapper">
-                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             </div>
             <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
             <div class="product-name">{{ prod.name }}</div>

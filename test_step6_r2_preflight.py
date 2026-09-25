@@ -1,7 +1,7 @@
 import unittest
 import os
 import sys
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -28,7 +28,8 @@ class TestStep6R2Preflight(unittest.TestCase):
                         '1234567890abcdef.r2.cloudflarestorage.com',
                         access_key='dummy_access_key',
                         secret_key='dummy_secret_key',
-                        secure=True
+                        secure=True,
+                        http_client=ANY
                     )
 
     def test_r2_public_url_resolution(self):

@@ -35,7 +35,7 @@
             
             {% if report.proof_file %}
             <div style="margin-bottom: 1rem;">
-                <a href="/static/uploads/users/{{ report.proof_file }}" target="_blank" class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.85rem;">
+                <a href="{{ resolve_image_url(report.proof_file, private=True) }}" target="_blank" class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.85rem;">
                     <i class="fa-solid fa-paperclip"></i> View Attachment
                 </a>
             </div>

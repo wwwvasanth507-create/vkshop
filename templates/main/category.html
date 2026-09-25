@@ -67,7 +67,7 @@
                         </button>
                         <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
                             <div class="product-card-img-wrapper">
-                                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                                <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                             </div>
                             <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
                             <div class="product-name">{{ prod.name }}</div>

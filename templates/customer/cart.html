@@ -16,7 +16,7 @@
         {% set price = item.variant.price if item.variant else item.product.offer_price %}
         {% set item_out_of_stock = item.product.is_out_of_stock or (item.variant and item.variant.stock <= 0) %}
         <div class="cart-item-card {% if item_out_of_stock %}cart-item-out-of-stock{% endif %}">
-            <img src="/static/uploads/products/{{ item.product.main_image }}" style="width: 90px; height: 90px; object-fit: contain; border-radius: var(--radius-md); background-color: white; border: 1px solid var(--border-color); padding: 0.25rem;">
+            <img src="{{ resolve_image_url(item.product.main_image, default_category='products') }}" style="width: 90px; height: 90px; object-fit: contain; border-radius: var(--radius-md); background-color: white; border: 1px solid var(--border-color); padding: 0.25rem;" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             
             <div style="flex: 1;">
                 <h4 style="margin-bottom: 0.25rem; font-size: 1.05rem;"><a href="{{ url_for('main.product_detail', slug=item.product.slug) }}" style="color: var(--text-primary);">{{ item.product.name }}</a></h4>

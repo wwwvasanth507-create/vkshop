@@ -1,31 +1,32 @@
 # Gunicorn Production Configuration
 import os
-import multiprocessing
 
 # Bind to localhost/all interfaces on Render dynamic PORT
 port = os.environ.get('PORT', '5000')
 bind = f"0.0.0.0:{port}"
 
-# Multi-threaded worker setup (highly optimized for ultra-fast performance)
-workers = multiprocessing.cpu_count() * 2 + 1
-threads = 16
+# Bounded worker & thread count optimized for Render container limits (512MB RAM / 1 CPU)
+workers = int(os.environ.get('WEB_CONCURRENCY', os.environ.get('GUNICORN_WORKERS', '2')))
+threads = int(os.environ.get('GUNICORN_THREADS', '4'))
 worker_class = "gthread"
-worker_connections = 2000
+worker_connections = 1000
 
-# Timeout options
+# Worker lifecycle & recycling settings (prevents memory leaks over time)
+max_requests = int(os.environ.get('GUNICORN_MAX_REQUESTS', '1000'))
+max_requests_jitter = int(os.environ.get('GUNICORN_MAX_REQUESTS_JITTER', '100'))
+
+# Bounded Timeout options
 timeout = 60
-keepalive = 15
+graceful_timeout = 30
+keepalive = 5
 
-# Logging settings
-accesslog = "logs/gunicorn_access.log"
-errorlog = "logs/gunicorn_error.log"
-loglevel = "info"
+# Logging settings - stream to stdout/stderr for Render log aggregator
+accesslog = "-"
+errorlog = "-"
+loglevel = os.environ.get('GUNICORN_LOG_LEVEL', 'info').lower()
 
-# Security: set secure headers and request limits
+# Security & Request header size limits
 limit_request_line = 4094
 limit_request_fields = 100
 limit_request_field_size = 8190
 
-# Ensure log directory exists
-import os
-os.makedirs("logs", exist_ok=True)

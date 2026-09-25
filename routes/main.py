@@ -339,11 +339,18 @@ def sellers_list():
 
 @main_bp.route('/seller/<int:store_id>')
 def seller_detail(store_id):
-    # Fetch specific approved seller
-    store = StoreProfile.query.filter_by(id=store_id, status='Approved').first_or_404()
-    # Fetch active products for this seller
+    from flask_login import current_user
+    from flask import abort
+    store = StoreProfile.query.get_or_404(store_id)
+    if store.status != 'Approved':
+        user_role = getattr(current_user.role, 'value', current_user.role) if current_user.is_authenticated and hasattr(current_user, 'role') else None
+        is_admin = user_role in ['admin', 'sub_admin']
+        is_owner = current_user.is_authenticated and (store.user_id == current_user.id or getattr(current_user, 'seller_id', None) == store.id or (hasattr(current_user, 'store_profile') and current_user.store_profile and current_user.store_profile.id == store.id))
+        if not current_user.is_authenticated or (not is_admin and not is_owner):
+            abort(404)
     products = Product.query.filter_by(seller_id=store.id, is_active=True).all()
     return render_template('main/seller_detail.html', store=store, products=products)
+
 
 @main_bp.route('/privacy-policy')
 def privacy_policy():

@@ -18,7 +18,7 @@
                 <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ banner.subtitle }}</p>
                 <a href="{{ banner.link_url or '#' }}" class="btn btn-primary">Shop Now <i class="fa-solid fa-arrow-right"></i></a>
             </div>
-            <img src="/static/uploads/banners/{{ banner.image_path }}" class="slide-img" alt="{{ banner.title }}">
+            <img src="{{ resolve_image_url(banner.image_path, default_category='banners') }}" class="slide-img" alt="{{ banner.title }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
         </div>
         {% endfor %}
     </div>
@@ -45,7 +45,7 @@
     <a href="{{ url_for('main.category_detail', slug=cat.slug) }}" style="flex: 0 0 160px; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; transition: all var(--transition-normal); box-shadow: var(--shadow-sm);" onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)';">
         <div style="width: 50px; height: 50px; background-color: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem; overflow: hidden;">
             {% if cat.icon and ('.' in cat.icon or '/' in cat.icon or cat.icon.startswith('cat_icon_')) %}
-                <img src="/static/uploads/categories/{{ cat.icon }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ cat.name }}">
+                <img src="{{ resolve_image_url(cat.icon, default_category='categories') }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ cat.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             {% else %}
                 <i class="fa-solid {{ cat.icon or 'fa-tag' }}"></i>
             {% endif %}
@@ -75,7 +75,7 @@
         </button>
         <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
             <div class="product-card-img-wrapper">
-                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             </div>
             <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
             <div class="product-name">{{ prod.name }}</div>
@@ -130,7 +130,7 @@
         </button>
         <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
             <div class="product-card-img-wrapper">
-                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             </div>
             <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
             <div class="product-name">{{ prod.name }}</div>
@@ -184,7 +184,7 @@
         </button>
         <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
             <div class="product-card-img-wrapper">
-                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             </div>
             <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
             <div class="product-name">{{ prod.name }}</div>
@@ -231,7 +231,7 @@
         </button>
         <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
             <div class="product-card-img-wrapper">
-                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                <img src="{{ resolve_image_url(prod.main_image, default_category='products') }}" class="product-card-img" alt="{{ prod.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             </div>
             <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
             <div class="product-name">{{ prod.name }}</div>

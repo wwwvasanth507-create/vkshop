@@ -3,7 +3,7 @@ import os
 import sys
 import uuid
 import io
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, ANY
 
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
@@ -38,7 +38,8 @@ class TestStep6bR2Configuration(unittest.TestCase):
                         'abcdef1234567890.r2.cloudflarestorage.com',
                         access_key='test_acc_key',
                         secret_key='test_sec_key',
-                        secure=True
+                        secure=True,
+                        http_client=ANY
                     )
 
     def test_public_asset_url_generation(self):

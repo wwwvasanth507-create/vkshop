@@ -21,7 +21,7 @@
         <div class="seller-card" data-name="{{ store.name|lower }}" data-desc="{{ (store.description or '')|lower }}" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; align-items: center; gap: 1rem; transition: all var(--transition-normal); box-shadow: var(--shadow-sm); cursor: pointer;" onclick="window.location.href='{{ url_for('main.seller_detail', store_id=store.id) }}'">
             <div style="width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; background-color: #fff; flex-shrink: 0; overflow: hidden;">
                 {% if store.logo %}
-                    <img src="/static/uploads/store/{{ store.logo }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ store.name }}">
+                    <img src="{{ resolve_image_url(store.logo, default_category='stores/logo') }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ store.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                 {% else %}
                     <i class="fa-solid fa-store" style="font-size: 1.5rem; color: var(--primary);"></i>
                 {% endif %}

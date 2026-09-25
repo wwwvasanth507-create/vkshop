@@ -1,5 +1,6 @@
-import unittest
 import os
+os.environ['FLASK_ENV'] = 'testing'
+import unittest
 import sys
 from unittest.mock import patch
 

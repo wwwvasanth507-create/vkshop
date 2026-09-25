@@ -130,35 +130,43 @@ class SellerPdfService:
         elements.append(t2)
         elements.append(Spacer(1, 12))
         
+        # Helper function to load ReportLab image from R2 object storage or local fallback
+        def _load_pdf_image(key_or_path, width, height, label_name):
+            if not key_or_path:
+                return Paragraph(f"{label_name}: Not Uploaded", normal_style)
+
+            clean_key = str(key_or_path).replace('/static/uploads/', '').replace('static/uploads/', '')
+            
+            from services.storage import storage_service
+            if storage_service.is_available():
+                try:
+                    response, stat = storage_service.get_file(clean_key)
+                    data = response.read()
+                    response.close()
+                    response.release_conn()
+                    if data:
+                        return RLImage(io.BytesIO(data), width=width, height=height)
+                except Exception as e:
+                    pass
+
+            local_path = os.path.join(Config.USER_UPLOADS, clean_key.replace('/', os.sep))
+            if os.path.exists(local_path):
+                try:
+                    return RLImage(local_path, width=width, height=height)
+                except Exception:
+                    return Paragraph(f"[{label_name} Image Error]", normal_style)
+
+            return Paragraph(f"[{label_name} File Missing]", normal_style)
+
         # Section 3: Identity Verification (Aadhaar details & images)
         elements.append(Paragraph("Identity Proof Details", section_style))
         elements.append(Paragraph(f"<b>Aadhaar Number:</b> {store.aadhaar_number or 'N/A'}", normal_style))
         elements.append(Spacer(1, 6))
         
-        img_row = []
-        if store.aadhaar_front:
-            front_path = os.path.join(Config.USER_UPLOADS, store.aadhaar_front)
-            if os.path.exists(front_path):
-                try:
-                    img_row.append(RLImage(front_path, width=250, height=150))
-                except Exception:
-                    img_row.append(Paragraph("[Aadhaar Front Image Error]", normal_style))
-            else:
-                img_row.append(Paragraph("[Aadhaar Front File Missing]", normal_style))
-        else:
-            img_row.append(Paragraph("Aadhaar Front: Not Uploaded", normal_style))
-            
-        if store.aadhaar_back:
-            back_path = os.path.join(Config.USER_UPLOADS, store.aadhaar_back)
-            if os.path.exists(back_path):
-                try:
-                    img_row.append(RLImage(back_path, width=250, height=150))
-                except Exception:
-                    img_row.append(Paragraph("[Aadhaar Back Image Error]", normal_style))
-            else:
-                img_row.append(Paragraph("[Aadhaar Back File Missing]", normal_style))
-        else:
-            img_row.append(Paragraph("Aadhaar Back: Not Uploaded", normal_style))
+        img_row = [
+            _load_pdf_image(store.aadhaar_front, 250, 150, "Aadhaar Front"),
+            _load_pdf_image(store.aadhaar_back, 250, 150, "Aadhaar Back")
+        ]
             
         t_imgs = Table([img_row], colWidths=[270, 270])
         t_imgs.setStyle(TableStyle([
@@ -171,30 +179,10 @@ class SellerPdfService:
         # Section 4: Owner Photo & Signature
         elements.append(Paragraph("Verification Documents & Onboarding Signature", section_style))
         
-        photo_sig_row = []
-        if store.photo:
-            photo_path = os.path.join(Config.USER_UPLOADS, store.photo)
-            if os.path.exists(photo_path):
-                try:
-                    photo_sig_row.append(RLImage(photo_path, width=120, height=120))
-                except Exception:
-                    photo_sig_row.append(Paragraph("[Owner Photo Image Error]", normal_style))
-            else:
-                photo_sig_row.append(Paragraph("[Owner Photo File Missing]", normal_style))
-        else:
-            photo_sig_row.append(Paragraph("Photo: Not Uploaded", normal_style))
-            
-        if store.signature:
-            sig_path = os.path.join(Config.USER_UPLOADS, store.signature)
-            if os.path.exists(sig_path):
-                try:
-                    photo_sig_row.append(RLImage(sig_path, width=160, height=50))
-                except Exception:
-                    photo_sig_row.append(Paragraph("[Signature Image Error]", normal_style))
-            else:
-                photo_sig_row.append(Paragraph("[Signature File Missing]", normal_style))
-        else:
-            photo_sig_row.append(Paragraph("Signature: Not Uploaded", normal_style))
+        photo_sig_row = [
+            _load_pdf_image(store.photo, 120, 120, "Photo"),
+            _load_pdf_image(store.signature, 160, 50, "Signature")
+        ]
             
         t_photo_sig = Table([photo_sig_row], colWidths=[270, 270])
         t_photo_sig.setStyle(TableStyle([
@@ -203,6 +191,7 @@ class SellerPdfService:
         ]))
         elements.append(t_photo_sig)
         elements.append(Spacer(1, 10))
+
         
         # Legal Signature Disclaimer
         elements.append(Paragraph("Legal Agreement & Signed Declaration", section_style))

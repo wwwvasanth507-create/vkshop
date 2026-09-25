@@ -34,7 +34,7 @@
         <!-- QR Code container -->
         <div style="background: white; padding: 1.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center;">
             {% if admin_qr_code %}
-                <img src="/static/uploads/admin/{{ admin_qr_code }}" alt="Scan to Pay UPI QR Code" style="width: 250px; height: 250px; object-fit: contain; display: block; border-radius: 4px;">
+                <img src="{{ resolve_image_url(admin_qr_code) }}" alt="Scan to Pay UPI QR Code" style="width: 250px; height: 250px; object-fit: contain; display: block; border-radius: 4px;" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
             {% else %}
                 <img src="{{ qr_api_url }}" alt="Scan to Pay UPI QR Code" style="width: 250px; height: 250px; display: block; border-radius: 4px;">
             {% endif %}

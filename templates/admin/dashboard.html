@@ -119,16 +119,16 @@
                                         <strong>No:</strong> {{ store.aadhaar_number or 'N/A' }}<br>
                                         <strong>Files:</strong><br>
                                         {% if store.aadhaar_front %}
-                                            <a href="/static/uploads/users/{{ store.aadhaar_front }}" target="_blank">Front</a> |
+                                            <a href="{{ resolve_image_url(store.aadhaar_front, private=True) }}" target="_blank">Front</a> |
                                         {% endif %}
                                         {% if store.aadhaar_back %}
-                                            <a href="/static/uploads/users/{{ store.aadhaar_back }}" target="_blank">Back</a> |
+                                            <a href="{{ resolve_image_url(store.aadhaar_back, private=True) }}" target="_blank">Back</a> |
                                         {% endif %}
                                         {% if store.photo %}
-                                            <a href="/static/uploads/users/{{ store.photo }}" target="_blank">Photo</a> |
+                                            <a href="{{ resolve_image_url(store.photo, private=True) }}" target="_blank">Photo</a> |
                                         {% endif %}
                                         {% if store.signature %}
-                                            <a href="/static/uploads/users/{{ store.signature }}" target="_blank">Signature</a>
+                                            <a href="{{ resolve_image_url(store.signature, private=True) }}" target="_blank">Signature</a>
                                         {% endif %}
                                     </td>
                                     <td>{{ store.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
@@ -354,7 +354,7 @@
                             {% for bn in banners %}
                             <div style="border: 1px solid var(--border-color); background-color: var(--bg-secondary); border-radius: var(--radius-md); padding: 1rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between;">
                                 <div style="display: flex; gap: 1rem; align-items: center;">
-                                    <img src="/static/uploads/banners/{{ bn.image_path }}" style="width: 120px; height: 60px; object-fit: cover; border-radius: 4px;">
+                                    <img src="{{ resolve_image_url(bn.image_path, default_category='banners') }}" style="width: 120px; height: 60px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                                     <div>
                                         <strong style="color: var(--text-primary);">{{ bn.title }}</strong>
                                         <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
@@ -475,7 +475,7 @@
                                     <td><span style="font-family: monospace; font-weight: 600;">{{ cp.transaction_id }}</span></td>
                                     <td>
                                         {% if cp.screenshot %}
-                                            <a href="/static/uploads/users/{{ cp.screenshot }}" target="_blank">View Proof Screenshot</a>
+                                            <a href="{{ resolve_image_url(cp.screenshot, private=True) }}" target="_blank">View Proof Screenshot</a>
                                         {% else %}
                                             None
                                         {% endif %}
@@ -792,7 +792,7 @@
                                 <strong>Issue description:</strong> {{ comp.details }}
                             </p>
                             {% if comp.screenshot %}
-                                <a href="/static/uploads/users/{{ comp.screenshot }}" target="_blank" style="font-size: 0.85rem; font-weight: 600;"><i class="fa-solid fa-image"></i> View Customer Proof Screenshot</a>
+                                <a href="{{ resolve_image_url(comp.screenshot, private=True) }}" target="_blank" style="font-size: 0.85rem; font-weight: 600;"><i class="fa-solid fa-image"></i> View Customer Proof Screenshot</a>
                             {% endif %}
                         </div>
 
@@ -805,7 +805,7 @@
                             <div><strong>Payment Status:</strong> {{ comp.order.payment.status }}</div>
                             {% if comp.order.payment.screenshot_path %}
                                 <div style="margin-top: 0.5rem;">
-                                    <a href="/static/uploads/users/{{ comp.order.payment.screenshot_path }}" target="_blank"><i class="fa-solid fa-receipt"></i> View Order Payment Receipt Screenshot</a>
+                                    <a href="{{ resolve_image_url(comp.order.payment.screenshot_path, private=True) }}" target="_blank"><i class="fa-solid fa-receipt"></i> View Order Payment Receipt Screenshot</a>
                                 </div>
                             {% endif %}
                         </div>
@@ -1023,12 +1023,12 @@
                 total_sales: {{ seller.total_sales|default(0, true)|tojson }},
                 commission_percentage: {{ seller.commission_percentage|default(0, true)|tojson }},
                 aadhaar_number: {{ seller.aadhaar_number|tojson }},
-                aadhaar_front: {{ seller.aadhaar_front|tojson }},
-                aadhaar_back: {{ seller.aadhaar_back|tojson }},
-                photo: {{ seller.photo|tojson }},
-                signature: {{ seller.signature|tojson }},
+                aadhaar_front_url: {{ resolve_image_url(seller.aadhaar_front, private=True)|tojson }},
+                aadhaar_back_url: {{ resolve_image_url(seller.aadhaar_back, private=True)|tojson }},
+                photo_url: {{ resolve_image_url(seller.photo, private=True)|tojson }},
+                signature_url: {{ resolve_image_url(seller.signature, private=True)|tojson }},
                 upi_id: {{ seller.upi_id|tojson }},
-                qr_code_path: {{ seller.qr_code_path|tojson }}
+                qr_code_url: {{ resolve_image_url(seller.qr_code_path)|tojson }}
             },
             {% endfor %}
         };
@@ -1071,19 +1071,19 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 0.5rem;">
                     <div>
                         <strong>Aadhaar Front:</strong><br>
-                        ${sellerData.aadhaar_front ? `<a href="/static/uploads/users/${sellerData.aadhaar_front}" target="_blank"><img src="/static/uploads/users/${sellerData.aadhaar_front}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                        ${sellerData.aadhaar_front_url ? `<a href="${sellerData.aadhaar_front_url}" target="_blank"><img src="${sellerData.aadhaar_front_url}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
                     </div>
                     <div>
                         <strong>Aadhaar Back:</strong><br>
-                        ${sellerData.aadhaar_back ? `<a href="/static/uploads/users/${sellerData.aadhaar_back}" target="_blank"><img src="/static/uploads/users/${sellerData.aadhaar_back}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                        ${sellerData.aadhaar_back_url ? `<a href="${sellerData.aadhaar_back_url}" target="_blank"><img src="${sellerData.aadhaar_back_url}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
                     </div>
                     <div>
                         <strong>Profile Photo:</strong><br>
-                        ${sellerData.photo ? `<a href="/static/uploads/users/${sellerData.photo}" target="_blank"><img src="/static/uploads/users/${sellerData.photo}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                        ${sellerData.photo_url ? `<a href="${sellerData.photo_url}" target="_blank"><img src="${sellerData.photo_url}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
                     </div>
                     <div>
                         <strong>Signature:</strong><br>
-                        ${sellerData.signature ? `<a href="/static/uploads/users/${sellerData.signature}" target="_blank"><img src="/static/uploads/users/${sellerData.signature}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                        ${sellerData.signature_url ? `<a href="${sellerData.signature_url}" target="_blank"><img src="${sellerData.signature_url}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
                     </div>
                 </div>
                 
@@ -1093,7 +1093,7 @@
                     <div><strong>UPI ID:</strong> ${sellerData.upi_id || 'N/A'}</div>
                     <div>
                         <strong>UPI QR Code:</strong><br>
-                        ${sellerData.qr_code_path ? `<a href="/static/uploads/store/${sellerData.qr_code_path}" target="_blank"><img src="/static/uploads/store/${sellerData.qr_code_path}" style="width: 130px; height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem; background: white; padding: 0.25rem;"></a>` : '<span class="text-muted">None (QR removed/not uploaded)</span>'}
+                        ${sellerData.qr_code_url ? `<a href="${sellerData.qr_code_url}" target="_blank"><img src="${sellerData.qr_code_url}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';" style="width: 130px; height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem; background: white; padding: 0.25rem;"></a>` : '<span class="text-muted">None (QR removed/not uploaded)</span>'}
                     </div>
                 </div>
             </div>

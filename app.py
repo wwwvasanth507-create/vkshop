@@ -174,6 +174,8 @@ def create_app():
     # 7. Global Context Data Injector & Image URL Resolver
     from services.storage import resolve_image_url
     app.jinja_env.filters['image_url'] = resolve_image_url
+    app.jinja_env.globals['resolve_image_url'] = resolve_image_url
+    app.jinja_env.globals['image_url'] = resolve_image_url
 
     @app.context_processor
     def inject_global_data():
@@ -190,9 +192,17 @@ def create_app():
             image_url=resolve_image_url
         )
         
-    # 8. Outgoing Security Headers Injector
+    @app.before_request
+    def start_timer():
+        from flask import g
+        import time
+        g.start_time = time.time()
+
+    # 8. Outgoing Security Headers & Slow Request Logging Injector
     @app.after_request
     def inject_security_headers(response):
+        from flask import g
+        import time
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-XSS-Protection'] = '1; mode=block'
@@ -200,7 +210,16 @@ def create_app():
             response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
         if not app.debug:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+            
+        if hasattr(g, 'start_time'):
+            duration_ms = int((time.time() - g.start_time) * 1000)
+            if duration_ms > 2000:
+                app.logger.warning(f"[SLOW_REQUEST] method={request.method} path={request.path} status={response.status_code} duration={duration_ms}ms")
         return response
+
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db.session.remove()
         
     # 9. Register Blueprints
     from routes.auth import auth_bp
@@ -263,10 +282,29 @@ def create_app():
         from flask import abort
         if not current_user.is_authenticated:
             abort(401)
+
+        # Clean key prefix if necessary
+        clean_key = filename
+        if clean_key.startswith('users/private/'):
+            clean_key = clean_key[len('users/'):]
+        elif 'private/' in clean_key and not clean_key.startswith('private/'):
+            clean_key = clean_key[clean_key.find('private/'):]
+
+        # Authorization check for seller documents: admins, verifiers, or the document owner
+        if 'seller-documents/' in clean_key:
+            parts = clean_key.split('/')
+            try:
+                doc_idx = parts.index('seller-documents')
+                if doc_idx + 1 < len(parts):
+                    doc_username = parts[doc_idx + 1]
+                    if current_user.role not in ['admin', 'sub_admin', 'verifier'] and current_user.username != doc_username:
+                        abort(403)
+            except ValueError:
+                pass
             
         from services.storage import storage_service
         try:
-            response, stat = storage_service.get_file(filename)
+            response, stat = storage_service.get_file(clean_key)
             import io
             file_data = response.read()
             response.close()
@@ -276,19 +314,22 @@ def create_app():
                 mimetype=stat.content_type or 'application/octet-stream',
                 as_attachment=False
             )
-        except Exception:
-            local_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        except Exception as err:
+            local_path = os.path.join(app.config['UPLOAD_FOLDER'], clean_key.replace('/', os.sep))
             if os.path.exists(local_path):
                 return send_file(local_path)
+            app.logger.warning(f"[PRIVATE FILE 404] Could not serve '{clean_key}': {err}")
             abort(404)
+
             
-    # 13. Sync uploads on startup
-    with app.app_context():
-        try:
-            from services.storage import sync_local_uploads_to_minio
-            sync_local_uploads_to_minio()
-        except Exception as e:
-            app.logger.error(f"Failed to sync local uploads to MinIO on startup: {e}")
+    # 13. Sync uploads on startup if explicitly enabled
+    if os.environ.get('SYNC_ON_STARTUP', 'False').lower() in ('true', '1', 't'):
+        with app.app_context():
+            try:
+                from services.storage import sync_local_uploads_to_minio
+                sync_local_uploads_to_minio()
+            except Exception as e:
+                app.logger.error(f"Failed to sync local uploads to MinIO on startup: {e}")
             
     return app
 

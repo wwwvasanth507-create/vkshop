@@ -37,7 +37,7 @@
             <input type="file" id="admin_qr" name="ADMIN_QR_CODE" accept="image/*" class="form-control" style="padding: 0.35rem;">
             {% if settings.get('ADMIN_QR_CODE') %}
                 <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
-                    Current QR code image: <a href="/static/uploads/admin/{{ settings.get('ADMIN_QR_CODE') }}" target="_blank">View image</a>
+                    Current QR code image: <a href="{{ resolve_image_url(settings.get('ADMIN_QR_CODE')) }}" target="_blank">View image</a>
                 </div>
             {% endif %}
         </div>

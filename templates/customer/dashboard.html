@@ -220,7 +220,7 @@
                     <div class="product-card">
                         <a href="{{ url_for('main.product_detail', slug=item.product.slug) }}">
                             <div class="product-card-img-wrapper">
-                                <img src="/static/uploads/products/{{ item.product.main_image }}" class="product-card-img" alt="{{ item.product.name }}">
+                                <img src="{{ resolve_image_url(item.product.main_image, default_category='products') }}" class="product-card-img" alt="{{ item.product.name }}" onerror="this.onerror=null; this.src='/static/uploads/placeholder.jpg';">
                             </div>
                             <div class="product-name" style="font-size: 0.85rem;">{{ item.product.name }}</div>
                             <div class="offer-price" style="font-size: 1rem; margin-top: 0.5rem;">INR {{ item.product.offer_price|round(2) }}</div>

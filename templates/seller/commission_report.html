@@ -57,7 +57,7 @@
             <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 0.75rem;">{{ report.explanation }}</p>
             
             {% if report.proof_file %}
-            <a href="/static/uploads/users/{{ report.proof_file }}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;">
+            <a href="{{ resolve_image_url(report.proof_file, private=True) }}" target="_blank" class="btn btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem;">
                 <i class="fa-solid fa-paperclip"></i> View Attachment
             </a>
             {% endif %}
