@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% block title %}Seller Feedbacks - VKshop{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1100px; margin: 2rem auto; padding: 0 1rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+        <h2 style="font-family: var(--font-heading); margin: 0;">
+            <i class="fa-solid fa-comments text-primary"></i> Seller Feedbacks
+        </h2>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">
+            <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+    
+    <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+        <input type="text" id="search-feedbacks" class="form-control" placeholder="Search feedbacks by store or message..." style="max-width: 350px;">
+    </div>
+    
+    {% if feedbacks %}
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for feedback in feedbacks %}
+        <div class="feedback-card" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <h4 style="margin: 0 0 0.25rem;">{{ feedback.store.name }}</h4>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        Seller Email: {{ feedback.store.user.email }} |
+                        Submitted: {{ feedback.created_at.strftime('%d %b %Y %H:%M') }}
+                    </span>
+                </div>
+                <div>
+                    {% if feedback.is_read %}
+                    <span class="discount-badge" style="background-color: var(--success-light); color: var(--success); font-weight: 700; text-transform: uppercase;">
+                        Done
+                    </span>
+                    {% else %}
+                    <span class="discount-badge" style="background-color: var(--danger-light); color: var(--danger); font-weight: 700; text-transform: uppercase;">
+                        Pending
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <strong>Feedback Message:</strong>
+                <p style="font-size: 0.95rem; color: var(--text-secondary); margin: 0.5rem 0; white-space: pre-line; line-height: 1.5;">{{ feedback.message }}</p>
+            </div>
+            
+            {% if not feedback.is_read %}
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem; display: flex; justify-content: flex-end;">
+                <a href="{{ url_for('admin.mark_feedback_read', feedback_id=feedback.id) }}" class="btn btn-primary" style="padding: 0.4rem 1rem;">
+                    <i class="fa-solid fa-check"></i> Mark as Done
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+        <i class="fa-solid fa-comments" style="font-size: 3rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i>
+        <p>No seller feedbacks received yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('search-feedbacks');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            document.querySelectorAll('.feedback-card').forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

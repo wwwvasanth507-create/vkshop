@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+{% block title %}Press Releases - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 3rem; box-shadow: var(--shadow-lg);">
+    <h1 style="font-family: var(--font-heading); font-size: 2.25rem; font-weight: 800; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Press Room</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Read official news updates, feature releases, and corporate announcements from VKshop.</p>
+    
+    <div style="color: var(--text-secondary); line-height: 1.6; display: flex; flex-direction: column; gap: 2rem;">
+        
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+            <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">July 13, 2026</span>
+            <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">VKshop Completes System-Wide Brand Transition</h3>
+            <p style="margin-bottom: 0.75rem;">
+                VKshop (formerly known as E-COM) today announced the completion of its comprehensive corporate rebranding strategy. The brand update features an updated high-resolution logo icon, simplified frontend layout navigation, and a modern design system.
+            </p>
+            <p>
+                "Our new branding reflects our status as a premium storefront and verified marketplace," said the VKshop Leadership Team. "It represents trust, high quality, and seamless logistics as we continue to scale."
+            </p>
+        </div>
+
+        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+            <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">June 18, 2026</span>
+            <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">VKshop Logistics Launches Real-Time Dispatch Verification</h3>
+            <p>
+                In our continuous effort to eliminate shipping delays and coordinate dispatch pipelines, VKshop Logistics has rolled out printable CID order delivery sheets and barcode verification checks. Store owners can now easily batch-print up to 4 shipping cards per A4 page to coordinate packaging and courier tracking numbers dynamically.
+            </p>
+        </div>
+
+        <div style="padding-bottom: 1rem;">
+            <span style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.5rem;">May 05, 2026</span>
+            <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">VKshop Implements Advanced KYC Fraud Safeguards</h3>
+            <p>
+                To provide customers with verified marketplace transactions, VKshop has added Aadhaar document checks and onboarding signature verifications for all store registers. The system automatically restricts store activations until background verifiers approve the profile, ensuring total transaction security.
+            </p>
+        </div>
+
+        <div style="padding: 1.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background-color: var(--bg-primary); margin-top: 1rem;">
+            <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">Media Contact Details</h4>
+            <p style="font-size: 0.9rem;">
+                For press inquiries, brand assets, or interview requests, please contact our public relations desk at <a href="mailto:press@vkshop.com" style="color: var(--primary); font-weight: 600; text-decoration: none;">press@vkshop.com</a>.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

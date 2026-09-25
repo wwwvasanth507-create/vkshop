@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}{{ store.name }} - Storefront - VKshop{% endblock %}
+
+{% block content %}
+<!-- Seller Store Header -->
+<div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 1rem; align-items: center; text-align: center; position: relative; overflow: hidden;">
+    <!-- Abstract gradient banner effect -->
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 60px; background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(245, 158, 11, 0.1)); border-bottom: 1px solid var(--border-color); z-index: 1;"></div>
+    
+    <div style="width: 80px; height: 80px; border-radius: 50%; border: 3px solid var(--bg-secondary); display: flex; align-items: center; justify-content: center; background-color: #fff; z-index: 2; overflow: hidden; box-shadow: var(--shadow-sm); margin-top: 15px; flex-shrink: 0;">
+        {% if store.logo %}
+            <img src="/static/uploads/store/{{ store.logo }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ store.name }}">
+        {% else %}
+            <i class="fa-solid fa-store" style="font-size: 2rem; color: var(--primary);"></i>
+        {% endif %}
+    </div>
+    
+    <div style="z-index: 2; width: 100%;">
+        <h2 style="font-family: var(--font-heading); font-size: 1.5rem; font-weight: 800; margin-bottom: 0.25rem; color: var(--text-primary);">{{ store.name }}</h2>
+        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+            <span style="display: inline-flex; align-items: center; gap: 0.25rem; color: var(--accent); font-weight: 700;">
+                <i class="fa-solid fa-star"></i> {{ store.rating|round(1) }} Rating
+            </span>
+            <span>•</span>
+            <span>Joined {{ store.created_at.strftime('%b %Y') }}</span>
+        </div>
+        <p style="color: var(--text-secondary); font-size: 0.88rem; max-width: 400px; margin: 0 auto; line-height: 1.5;">
+            {{ store.description or 'Welcome to our official storefront! We offer premium quality products and excellent customer service. Browse our catalog below to discover our products.' }}
+        </p>
+    </div>
+</div>
+
+<!-- Products Grid Title -->
+<div class="section-title-row">
+    <h3 style="font-family: var(--font-heading);">Products Catalog ({{ products|length }})</h3>
+</div>
+
+<!-- Products Listings -->
+{% if products %}
+<div class="products-grid">
+    {% for prod in products %}
+    <div class="product-card">
+        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+            <i class="fa-solid fa-share-nodes"></i>
+        </button>
+        <button class="product-wishlist-btn" onclick="toggleWishlist({{ prod.id }})" title="Add to Wishlist" aria-label="Toggle wishlist for {{ prod.name }}">
+            <i class="fa-regular fa-heart"></i>
+        </button>
+        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+            <div class="product-card-img-wrapper">
+                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+            </div>
+            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+            <div class="product-name">{{ prod.name }}</div>
+            
+            <div class="rating-stars">
+                {% set avg = prod.average_rating %}
+                {% for i in range(1, 6) %}
+                    {% if avg >= i %}
+                        <i class="fa-solid fa-star"></i>
+                    {% else %}
+                        <i class="fa-regular fa-star"></i>
+                    {% endif %}
+                {% endfor %}
+                <span>({{ prod.reviews|length }})</span>
+            </div>
+            
+            <div class="product-price-row">
+                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                {% if prod.discount_percent > 0 %}
+                    <span class="base-price">INR {{ prod.base_price|round(2) }}</span>
+                    <span class="discount-badge">{{ prod.discount_percent|round(0) }}% Off</span>
+                {% endif %}
+            </div>
+            {% if prod.is_out_of_stock %}
+                <div class="out-of-stock-overlay">
+                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                </div>
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted); background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+    <i class="fa-solid fa-box-open" style="font-size: 3rem; margin-bottom: 1rem; color: var(--border-color);"></i>
+    <p>This seller hasn't uploaded any products yet. Check back later!</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Ticket #{{ ticket.id }} - Support conversation{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto;">
+    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+            <div>
+                <span class="discount-badge" style="background-color: var(--primary-light); color: var(--primary); margin-bottom: 0.5rem; display: inline-block;">{{ ticket.category }}</span>
+                <h2 style="font-family: var(--font-heading); margin-bottom: 0.25rem;">{{ ticket.subject }}</h2>
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">Ticket Ref ID: #{{ ticket.id }} | Priority: {{ ticket.priority }}</span>
+            </div>
+            <div style="text-align: right;">
+                <span class="discount-badge" style="background-color: {% if ticket.status == 'Closed' %}var(--border-color){% else %}var(--success){% endif %}; color: {% if ticket.status == 'Closed' %}var(--text-secondary){% else %}white{% endif %}; font-size: 1rem; padding: 0.35rem 0.75rem;">
+                    {{ ticket.status }}
+                </span>
+            </div>
+        </div>
+        
+        <!-- Conversation Thread -->
+        <h4 style="margin-bottom: 1.5rem;">Conversation Thread</h4>
+        <div style="display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem;">
+            {% for msg in ticket.messages %}
+            <div style="display: flex; flex-direction: column; max-width: 80%;
+                        align-self: {% if msg.is_admin %}flex-start{% else %}flex-end{% endif %};
+                        background-color: {% if msg.is_admin %}var(--bg-tertiary){% else %}var(--primary-light){% endif %};
+                        border: 1px solid var(--border-color);
+                        border-radius: var(--radius-lg);
+                        padding: 1rem;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: {% if msg.is_admin %}var(--text-secondary){% else %}var(--primary){% endif %}; margin-bottom: 0.25rem;">
+                    {{ 'Staff Support' if msg.is_admin else ticket.user.username }}
+                </div>
+                <p style="color: var(--text-primary); font-size: 0.95rem;">{{ msg.message }}</p>
+                <span style="font-size: 0.75rem; color: var(--text-muted); align-self: flex-end; margin-top: 0.5rem;">
+                    {{ msg.created_at.strftime('%Y-%m-%d %H:%M') }}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Reply form -->
+        {% if ticket.status != 'Closed' %}
+        <form action="" method="POST" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="reply-msg">Write Reply</label>
+                <textarea id="reply-msg" name="message" class="form-control" rows="4" placeholder="Type your reply here..." required></textarea>
+            </div>
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn btn-primary">Send Message</button>
+            </div>
+        </form>
+        {% else %}
+        <div class="alert alert-info" style="margin-bottom: 0; text-align: center;">
+            This support ticket is closed. If your issue is not resolved, please open a new ticket case.
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

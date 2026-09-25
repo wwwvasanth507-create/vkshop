@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block title %}Shipping Rates & Policies - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 3rem; box-shadow: var(--shadow-lg);">
+    <h1 style="font-family: var(--font-heading); font-size: 2.25rem; font-weight: 800; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Shipping Rates & Policies</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Information about delivery speeds, courier partners, and shipping charges.</p>
+    
+    <div style="color: var(--text-secondary); line-height: 1.6; display: flex; flex-direction: column; gap: 1.5rem;">
+        <p>
+            At <strong>VKshop</strong>, we coordinate all item dispatches through <strong>VKshop Logistics</strong> to ensure your packages are handled with care and delivered on time. We partner with leading courier providers to support secure tracking links for every order.
+        </p>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">1. Shipping Costs</h3>
+        <p>
+            Our shipping rates are calculated dynamically based on your order subtotal:
+        </p>
+        <table style="width: 100%; border-collapse: collapse; margin: 0.5rem 0 1rem; font-size: 0.95rem;">
+            <thead>
+                <tr style="background-color: var(--bg-primary); border-bottom: 2px solid var(--border-color); text-align: left;">
+                    <th style="padding: 0.75rem 1rem; color: var(--text-primary);">Order Total Range</th>
+                    <th style="padding: 0.75rem 1rem; color: var(--text-primary);">Standard Shipping Fee</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem 1rem;">Under INR 500.00</td>
+                    <td style="padding: 0.75rem 1rem;">INR 50.00</td>
+                </tr>
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem 1rem;">INR 500.00 and above</td>
+                    <td style="padding: 0.75rem 1rem; font-weight: 600; color: var(--success);">FREE Shipping</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">2. Delivery Timelines</h3>
+        <p>
+            Timelines depend on the location of the seller store and the customer shipping address:
+        </p>
+        <ul style="padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+            <li><strong>Metro Cities:</strong> 2 to 4 business days.</li>
+            <li><strong>Non-Metro / Tier-2 Cities:</strong> 3 to 6 business days.</li>
+            <li><strong>North-East & Rural Areas:</strong> 5 to 8 business days.</li>
+        </ul>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">3. Order Tracking</h3>
+        <p>
+            Once an order is confirmed and packaged by the seller, a unique logistics tracking number (e.g. <code>TRK-XXXXXXXXXXXXXXXX</code>) is generated. You can check the current tracking status inside your account dashboard under the order details view.
+        </p>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">4. Damaged or Lost Shipments</h3>
+        <p>
+            If a package arrives damaged or does not arrive within the expected timeline, please file a complaint ticket directly through your customer portal, or contact us at <a href="mailto:support@vkshop.com" style="color: var(--primary); font-weight: 600; text-decoration: none;">support@vkshop.com</a>.
+        </p>
+    </div>
+</div>
+{% endblock %}

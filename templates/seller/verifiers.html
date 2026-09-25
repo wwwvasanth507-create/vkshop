@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% block title %}Manage Payment Verifiers - VKshop{% endblock %}
+{% block content %}
+<div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h2 style="font-family: var(--font-heading); margin-bottom: 0.25rem;">Payment Verifiers</h2>
+            <span style="font-size: 0.9rem; color: var(--text-secondary);">Manage agent accounts to verify scan & pay transactions.</span>
+        </div>
+        <div>
+            <button class="btn btn-primary" onclick="openModal('add-verifier-modal')"><i class="fa-solid fa-plus"></i> Add Verifier</button>
+        </div>
+    </div>
+
+    <!-- Verifier list -->
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for v in verifiers %}
+                <tr>
+                    <td style="font-weight: 600;">{{ v.username }}</td>
+                    <td>{{ v.email }}</td>
+                    <td>
+                        {% if v.is_suspended %}
+                            <span class="discount-badge" style="background-color: var(--danger-light); color: var(--danger);">Suspended</span>
+                        {% else %}
+                            <span class="discount-badge" style="background-color: var(--success-light); color: var(--success);">Active</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ v.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="openEditModal({{ v.id }}, '{{ v.username }}', '{{ v.email }}')">Edit</button>
+                            <a href="{{ url_for('seller.toggle_suspend_verifier', v_id=v.id) }}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; color: var(--warning);">
+                                {% if v.is_suspended %}Unsuspend{% else %}Suspend{% endif %}
+                            </a>
+                            <a href="{{ url_for('seller.delete_verifier', v_id=v.id) }}" class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; color: var(--danger);" onclick="return confirm('Are you sure you want to delete this verifier?')">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: var(--text-muted); font-style: italic;">No payment verifiers created yet. Add one above.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ADD VERIFIER MODAL -->
+<div class="modal-overlay" id="add-verifier-modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3>Create Payment Verifier</h3>
+            <button onclick="closeModal('add-verifier-modal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('seller.verifiers') }}" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="v-username">Username</label>
+                <input type="text" id="v-username" name="username" class="form-control" placeholder="e.g. john_verifier" required>
+            </div>
+            <div class="form-group">
+                <label for="v-email">Email Address</label>
+                <input type="email" id="v-email" name="email" class="form-control" placeholder="e.g. john@example.com" required>
+            </div>
+            <div class="form-group">
+                <label for="v-password">Password</label>
+                <input type="password" id="v-password" name="password" class="form-control" placeholder="Password for verifier login" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Create Verifier</button>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT VERIFIER MODAL -->
+<div class="modal-overlay" id="edit-verifier-modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3>Edit Verifier Details</h3>
+            <button onclick="closeModal('edit-verifier-modal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="edit-verifier-form" action="" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="v-edit-username">Username</label>
+                <input type="text" id="v-edit-username" name="username" class="form-control" placeholder="e.g. john_verifier" required>
+            </div>
+            <div class="form-group">
+                <label for="v-edit-email">Email Address</label>
+                <input type="email" id="v-edit-email" name="email" class="form-control" placeholder="e.g. john@example.com" required>
+            </div>
+            <div class="form-group">
+                <label for="v-edit-password">Reset Password (leave empty to keep current)</label>
+                <input type="password" id="v-edit-password" name="password" class="form-control" placeholder="New Password">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Update Details</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function openEditModal(vId, username, email) {
+        document.getElementById('edit-verifier-form').action = `/seller/verifier/edit/${vId}`;
+        document.getElementById('v-edit-username').value = username;
+        document.getElementById('v-edit-email').value = email;
+        openModal('edit-verifier-modal');
+    }
+</script>
+{% endblock %}

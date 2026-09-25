@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Pay Platform Commission - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <h2 style="font-family: var(--font-heading); text-align: center; margin-bottom: 0.5rem; color: var(--text-primary);"><i class="fa-solid fa-percent text-primary"></i> Pay Platform Commission</h2>
+    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem; font-size: 0.95rem;">Please scan the QR code and submit your reference details to complete the payment.</p>
+
+    <!-- Calculation Badge -->
+    <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Total Sold Amount:</span>
+            <span style="font-weight: 600; color: var(--text-primary);">INR {{ store.total_sales|round(2) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Last Commission Sales Point:</span>
+            <span style="font-weight: 600; color: var(--text-primary);">INR {{ store.sales_at_last_commission|round(2) }}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">Commission Percentage:</span>
+            <span style="font-weight: 600; color: var(--text-primary);">{{ store.commission_percentage|round(1) }}%</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-top: 0.5rem;">
+            <span style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">Commission Due:</span>
+            <span style="font-weight: 800; font-size: 1.25rem; color: var(--primary);">INR {{ commission_due|round(2) }}</span>
+        </div>
+    </div>
+
+    <!-- Merchant Scan & Pay -->
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 2.5rem;">
+        <div style="font-weight: 600; color: var(--text-secondary); margin-bottom: 0.25rem; font-size: 0.9rem;">Paying Platform Admin</div>
+        <div style="font-weight: 700; color: var(--text-primary); font-size: 1.1rem; margin-bottom: 1.5rem;"><i class="fa-solid fa-shield-halved"></i> VKshop Admin</div>
+        
+        <!-- QR Code container -->
+        <div style="background: white; padding: 1.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-md); border: 1px solid var(--border-color); display: flex; flex-direction: column; align-items: center;">
+            {% if admin_qr_code %}
+                <img src="/static/uploads/admin/{{ admin_qr_code }}" alt="Scan to Pay UPI QR Code" style="width: 250px; height: 250px; object-fit: contain; display: block; border-radius: 4px;">
+            {% else %}
+                <img src="{{ qr_api_url }}" alt="Scan to Pay UPI QR Code" style="width: 250px; height: 250px; display: block; border-radius: 4px;">
+            {% endif %}
+            <div style="margin-top: 1rem; font-size: 0.8rem; color: #555; font-family: monospace; font-weight: 600;">UPI ID: {{ admin_upi }}</div>
+        </div>
+        
+        <a href="{{ upi_uri }}" class="btn btn-secondary" style="margin-top: 1.5rem; text-decoration: none; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+            <i class="fa-solid fa-mobile-screen-button"></i> Pay via UPI App
+        </a>
+    </div>
+
+    <!-- Proof Submission Form -->
+    <form action="" method="POST" enctype="multipart/form-data" style="border-top: 1px solid var(--border-color); padding-top: 2rem;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <h3 style="font-size: 1.2rem; font-family: var(--font-heading); margin-bottom: 1.25rem; color: var(--text-primary);">Submit Transaction Reference</h3>
+        
+        <div class="form-group">
+            <label for="utr_number">UTR / Reference Number / Paid Transaction ID</label>
+            <input type="text" id="utr_number" name="utr_number" class="form-control" placeholder="12-digit transaction ID or UTR" required>
+        </div>
+
+        <div class="form-group">
+            <label for="contact_number">Your Contact Number</label>
+            <input type="text" id="contact_number" name="contact_number" class="form-control" placeholder="Enter mobile number" required>
+        </div>
+
+        <div class="form-group">
+            <label for="screenshot">Upload Transaction Screenshot</label>
+            <input type="file" id="screenshot" name="screenshot" class="form-control-file" accept="image/*" required>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description (e.g. debited "sms")</label>
+            <textarea id="description" name="description" class="form-control" rows="3" placeholder="Enter notes"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem; margin-top: 1rem; font-weight: 600;">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Submit Commission Payment
+        </button>
+    </form>
+</div>
+{% endblock %}

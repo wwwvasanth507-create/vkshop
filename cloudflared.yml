@@ -1,0 +1,19 @@
+# Cloudflare Tunnel Configuration for E-COM Multi-Server Platform
+tunnel: YOUR_CLOUDFLARE_TUNNEL_UUID
+credentials-file: /etc/cloudflared/YOUR_CLOUDFLARE_TUNNEL_UUID.json
+
+ingress:
+  # Route traffic for domain to local E-COM service on port 5000
+  - hostname: your-domain.com
+    service: http://127.0.0.1:5000
+    originRequest:
+      connectTimeout: 30s
+      noChunkedEncoding: false
+      keepAliveTimeout: 1m30s
+      
+  # Health check routing for load balancer probes
+  - hostname: health.your-domain.com
+    service: http://127.0.0.1:5000/health
+
+  # Catch-all rule (required by Cloudflare Tunnel)
+  - service: http_status:404

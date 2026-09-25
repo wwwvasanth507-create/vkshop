@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}{{ category.name }} Catalog - VKshop{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <!-- Sidebar Filters -->
+    <aside class="dashboard-sidebar" style="padding: 1.25rem;">
+        <h4 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Filters</h4>
+        
+        <form action="" method="GET" id="filter-form">
+            <!-- Brand Filter -->
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Brand</label>
+                <select name="brand" class="form-control" onchange="document.getElementById('filter-form').submit()" aria-label="Brand filter dropdown">
+                    <option value="">All Brands</option>
+                    {% for br in brands %}
+                        <option value="{{ br.id }}" {% if selected_brand == br.id %}selected{% endif %}>{{ br.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Price Range -->
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Price Range</label>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="number" name="min_price" class="form-control" placeholder="Min" value="{{ min_price or '' }}" style="padding: 0.4rem;">
+                    <input type="number" name="max_price" class="form-control" placeholder="Max" value="{{ max_price or '' }}" style="padding: 0.4rem;">
+                </div>
+            </div>
+            
+            <!-- Sort Filter -->
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Sort By</label>
+                <select name="sort" class="form-control" onchange="document.getElementById('filter-form').submit()" aria-label="Sort options dropdown">
+                    <option value="popular" {% if sort_by == 'popular' %}selected{% endif %}>Popularity</option>
+                    <option value="price_low" {% if sort_by == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                    <option value="price_high" {% if sort_by == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest Arrivals</option>
+                </select>
+            </div>
+            
+            <button type="submit" class="btn btn-secondary" style="width: 100%; font-size: 0.85rem; padding: 0.5rem;">Apply Filters</button>
+        </form>
+    </aside>
+    
+    <!-- Main Search Area -->
+    <section>
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+            <div style="width: 50px; height: 50px; background-color: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem;">
+                <i class="fa-solid {{ category.icon or 'fa-tag' }}"></i>
+            </div>
+            <div>
+                <h2 style="font-family: var(--font-heading); margin-bottom: 0;">{{ category.name }} Catalog</h2>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">Browse through all items available in {{ category.name }}</p>
+            </div>
+        </div>
+        
+        {% if products %}
+            <div class="products-grid">
+                {% for prod in products %}
+                    <div class="product-card">
+                        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+                            <i class="fa-solid fa-share-nodes"></i>
+                        </button>
+                        <button class="product-wishlist-btn" onclick="toggleWishlist({{ prod.id }})" title="Add to Wishlist" aria-label="Toggle wishlist for {{ prod.name }}">
+                            <i class="fa-regular fa-heart"></i>
+                        </button>
+                        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+                            <div class="product-card-img-wrapper">
+                                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                            </div>
+                            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+                            <div class="product-name">{{ prod.name }}</div>
+                            
+                            <div class="rating-stars">
+                                {% set avg = prod.average_rating %}
+                                {% for i in range(1, 6) %}
+                                    {% if avg >= i %}
+                                        <i class="fa-solid fa-star"></i>
+                                    {% else %}
+                                        <i class="fa-regular fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                <span>({{ prod.reviews|length }})</span>
+                            </div>
+                            
+                            <div class="product-price-row">
+                                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                                {% if prod.discount_percent > 0 %}
+                                    <span class="base-price">INR {{ prod.base_price|round(2) }}</span>
+                                {% endif %}
+                            </div>
+                            {% if prod.is_out_of_stock %}
+                                <div class="out-of-stock-overlay">
+                                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                                </div>
+                            {% endif %}
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 4rem 2rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+                <i class="fa-regular fa-folder-open" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1.5rem;"></i>
+                <h3 style="margin-bottom: 0.5rem;">No products found</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">No items have been posted to this category yet.</p>
+                <a href="/" class="btn btn-primary">Go Home</a>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

@@ -1,0 +1,1157 @@
+{% extends 'base.html' %}
+{% block title %}Admin Control Center - VKshop{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <!-- Mobile Top-Bar with hamburger -->
+    <div class="seller-mobile-topbar" id="admin-mobile-topbar">
+        <button class="seller-hamburger" id="admin-hamburger" onclick="toggleSidebar()" aria-label="Open menu" style="display: flex; align-items: center; justify-content: center; background: none; border: none; padding: 0; color: var(--text-primary); cursor: pointer;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="12" x2="15" y2="12"></line>
+                <line x1="4" y1="18" x2="10" y2="18"></line>
+            </svg>
+        </button>
+        <span class="seller-topbar-title" id="admin-topbar-title">Overview</span>
+        <div style="width:44px;"></div><!-- spacer for balance -->
+    </div>
+
+    <!-- Backdrop overlay (mobile only) -->
+    <div class="seller-sidebar-backdrop" id="admin-sidebar-backdrop" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar Navigation -->
+    <aside class="dashboard-sidebar" id="admin-sidebar">
+        <!-- Mobile close button -->
+        <button class="seller-sidebar-close" id="admin-sidebar-close" onclick="closeSidebar()" aria-label="Close menu">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div style="width: 70px; height: 70px; background-color: var(--primary); color: white; font-size: 2.25rem; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
+                A
+            </div>
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.15rem;">Admin Operator</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">{% if current_user.role == 'admin' %}Super Admin{% else %}Sub Admin{% endif %}</span>
+        </div>
+        
+        <ul class="sidebar-nav">
+            <li class="sidebar-nav-item active" id="tab-btn-overview"><a href="#overview" onclick="switchTab('overview')"><i class="fa-solid fa-chart-line"></i> Overview</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-catalog"><a href="#catalog" onclick="switchTab('catalog')"><i class="fa-solid fa-folder-tree"></i> Categories & Brands</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-banners"><a href="#banners" onclick="switchTab('banners')"><i class="fa-solid fa-images"></i> Carousel Banners</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-commissions"><a href="#commissions" onclick="switchTab('commissions')"><i class="fa-solid fa-percent"></i> Commissions</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-notices"><a href="#notices" onclick="switchTab('notices')"><i class="fa-solid fa-bullhorn"></i> Notices Board</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-complaints"><a href="#complaints" onclick="switchTab('complaints')"><i class="fa-solid fa-circle-exclamation"></i> Customer Complaints</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-backups"><a href="#backups" onclick="switchTab('backups')"><i class="fa-solid fa-database"></i> DB Backups</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('admin.manage_users') }}"><i class="fa-solid fa-users-gear"></i> User Accounts</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('admin.view_logs') }}"><i class="fa-solid fa-clock-rotate-left"></i> Security Logs</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-commission-reports"><a href="{{ url_for('admin.view_commission_reports') }}"><i class="fa-solid fa-flag"></i> Commission Reports {% if open_commission_reports > 0 %}<span class="badge" style="background:var(--danger);color:white;padding:0.1rem 0.45rem;border-radius:12px;font-size:0.7rem;margin-left:0.3rem;">{{ open_commission_reports }}</span>{% endif %}</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-seller-feedbacks"><a href="{{ url_for('admin.view_seller_feedbacks') }}"><i class="fa-solid fa-comments"></i> Seller Feedbacks {% if unread_feedbacks_count > 0 %}<span class="badge" style="background:var(--danger);color:white;padding:0.1rem 0.45rem;border-radius:12px;font-size:0.7rem;margin-left:0.3rem;">{{ unread_feedbacks_count }}</span>{% endif %}</a></li>
+            {% if is_main_admin %}
+            <li class="sidebar-nav-item" id="tab-btn-sub-admins"><a href="#sub-admins" onclick="switchTab('sub-admins')"><i class="fa-solid fa-user-tie"></i> Sub Admins</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('admin.manage_admin_passwords') }}"><i class="fa-solid fa-key"></i> Password Management</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('admin.system_settings') }}"><i class="fa-solid fa-sliders"></i> Global Settings</a></li>
+            {% endif %}
+        </ul>
+    </aside>
+    
+    <!-- Tab Sections -->
+    <section>
+        <!-- OVERVIEW TAB -->
+        <div class="tab-pane active" id="tab-overview">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">System Overview</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-card-title">Total Users</span>
+                    <span class="stat-card-value">{{ users_count }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Registered Sellers</span>
+                    <span class="stat-card-value">{{ sellers_count }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Total Products</span>
+                    <span class="stat-card-value">{{ products_count }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Sales Volume</span>
+                    <span class="stat-card-value">INR {{ sales_volume|round(2) }}</span>
+                </div>
+            </div>
+            
+            <!-- Dynamic Sales Graphs -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <canvas id="admin-day-sales-chart" style="width: 100%; height: 260px;"></canvas>
+                </div>
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <canvas id="admin-month-sales-chart" style="width: 100%; height: 260px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Pending Seller Registrations -->
+            <div style="margin-top: 3rem;">
+                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Pending Seller Accounts Approval</h3>
+                {% if pending_sellers %}
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Store Name / Seller ID</th>
+                                    <th>Seller Username</th>
+                                    <th>Aadhaar KYC Details</th>
+                                    <th>Date Applied</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for store in pending_sellers %}
+                                <tr>
+                                    <td style="font-weight: 600;">
+                                        {{ store.name }}<br>
+                                        <small style="color: var(--text-muted);">Seller ID: #{{ store.id }}</small>
+                                    </td>
+                                    <td>{{ store.user.username }}</td>
+                                    <td>
+                                        <strong>No:</strong> {{ store.aadhaar_number or 'N/A' }}<br>
+                                        <strong>Files:</strong><br>
+                                        {% if store.aadhaar_front %}
+                                            <a href="/static/uploads/users/{{ store.aadhaar_front }}" target="_blank">Front</a> |
+                                        {% endif %}
+                                        {% if store.aadhaar_back %}
+                                            <a href="/static/uploads/users/{{ store.aadhaar_back }}" target="_blank">Back</a> |
+                                        {% endif %}
+                                        {% if store.photo %}
+                                            <a href="/static/uploads/users/{{ store.photo }}" target="_blank">Photo</a> |
+                                        {% endif %}
+                                        {% if store.signature %}
+                                            <a href="/static/uploads/users/{{ store.signature }}" target="_blank">Signature</a>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ store.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('admin.approve_seller', store_id=store.id) }}" class="btn btn-success" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Approve Store</a>
+                                        <a href="{{ url_for('admin.reject_seller', store_id=store.id) }}" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; margin-left: 0.25rem;">Reject</a>
+                                        <a href="{{ url_for('admin.export_seller_pdf', store_id=store.id) }}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; margin-left: 0.25rem;"><i class="fa-solid fa-file-pdf"></i> Export PDF</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">No pending seller verification requests.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Active Open Tickets Section -->
+            <div style="margin-top: 3rem;">
+                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Open Support Cases</h3>
+                {% if open_tickets %}
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Subject</th>
+                                    <th>Category</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tk in open_tickets %}
+                                <tr>
+                                    <td style="font-weight: 600;">{{ tk.user.username }}</td>
+                                    <td>{{ tk.subject }}</td>
+                                    <td>{{ tk.category }}</td>
+                                    <td>{{ tk.priority }}</td>
+                                    <td>
+                                        <span class="discount-badge" style="background-color: var(--primary-light); color: var(--primary);">{{ tk.status }}</span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('admin.view_ticket', ticket_id=tk.id) }}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Open Panel</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">All customer cases resolved! Zero open tickets.</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- CATEGORIES & BRANDS TAB -->
+        <div class="tab-pane" id="tab-catalog" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <!-- Category Creation -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">Create Category</h4>
+                    <form action="{{ url_for('admin.add_category') }}" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="c-name">Category Title</label>
+                            <input type="text" id="c-name" name="name" class="form-control" placeholder="e.g. Smartphones" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="c-parent">Parent Category (Optional for nested tree)</label>
+                            <select id="c-parent" name="parent_id" class="form-control">
+                                <option value="">-- None (Top Level) --</option>
+                                {% for cat in categories %}
+                                    {% if not cat.parent_id %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="c-icon">Icon Class (FontAwesome - Fallback)</label>
+                            <input type="text" id="c-icon" name="icon" class="form-control" value="fa-tag">
+                        </div>
+                        <div class="form-group">
+                            <label for="c-icon-image">Category Icon Image (Preferred)</label>
+                            <input type="file" id="c-icon-image" name="icon_image" accept="image/*" class="form-control" style="padding: 0.35rem;">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Category</button>
+                    </form>
+                </div>
+                
+                <!-- Brand Creation -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">Create Brand</h4>
+                    <form action="{{ url_for('admin.add_brand') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="b-name">Brand Name</label>
+                            <input type="text" id="b-name" name="name" class="form-control" placeholder="e.g. Apple" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="b-desc">Brand Description</label>
+                            <textarea id="b-desc" name="description" class="form-control" rows="3" placeholder="Overview..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="b-category">Category of Brand</label>
+                            <select id="b-category" name="category_id" class="form-control" required>
+                                <option value="">-- Select Category --</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Create Brand</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Existing Categories & Brands Lists -->
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 2rem;">
+                <!-- Existing Categories -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">Existing Categories</h4>
+                    {% if categories %}
+                    <div class="table-wrapper" style="max-height: 400px; overflow-y: auto; overflow-x: auto; max-width: 100%; width: 100%;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Category Info</th>
+                                    <th>Parent</th>
+                                    <th>Products</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cat in categories %}
+                                <tr>
+                                    <td>
+                                        <i class="fa-solid {{ cat.icon or 'fa-tag' }}"></i> {{ cat.name }}
+                                    </td>
+                                    <td>
+                                        {% if cat.parent %}
+                                            {{ cat.parent.name }}
+                                        {% else %}
+                                            <span style="color: var(--text-muted); font-size: 0.85rem;">None</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ cat.products|length }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('admin.delete_category', cat_id=cat.id) }}" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                            <i class="fa-solid fa-trash-can"></i> Delete
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-muted);">No categories available.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Existing Brands -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                    <h4 style="margin-bottom: 1rem;">Existing Brands</h4>
+                    {% if brands %}
+                    <div class="table-wrapper" style="max-height: 400px; overflow-y: auto; overflow-x: auto; max-width: 100%; width: 100%;">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Brand Name</th>
+                                    <th>Linked Category</th>
+                                    <th>Products</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for brand in brands %}
+                                <tr>
+                                    <td>
+                                        {{ brand.name }}
+                                    </td>
+                                    <td>
+                                        {% if brand.category %}
+                                            {{ brand.category.name }}
+                                        {% else %}
+                                            <span style="color: var(--text-muted); font-size: 0.85rem;">None</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {{ brand.products|length }}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('admin.delete_brand', brand_id=brand.id) }}" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                            <i class="fa-solid fa-trash-can"></i> Delete
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p style="color: var(--text-muted);">No brands available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- BANNERS TAB -->
+        <div class="tab-pane" id="tab-banners" style="display: none;">
+            <div style="display: grid; grid-template-columns: 1fr 380px; gap: 2rem;">
+                <!-- Current list -->
+                <div>
+                    <h4 style="margin-bottom: 1rem;">Current Banners</h4>
+                    {% if banners %}
+                        <div style="display: flex; flex-direction: column; gap: 1rem;">
+                            {% for bn in banners %}
+                            <div style="border: 1px solid var(--border-color); background-color: var(--bg-secondary); border-radius: var(--radius-md); padding: 1rem; display: flex; gap: 1rem; align-items: center; justify-content: space-between;">
+                                <div style="display: flex; gap: 1rem; align-items: center;">
+                                    <img src="/static/uploads/banners/{{ bn.image_path }}" style="width: 120px; height: 60px; object-fit: cover; border-radius: 4px;">
+                                    <div>
+                                        <strong style="color: var(--text-primary);">{{ bn.title }}</strong>
+                                        <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                            Sequence order: {{ bn.order_seq }} | Status: {{ 'Active' if bn.is_active else 'Disabled' }}
+                                            {% if bn.expires_at %}
+                                                | Expires: {{ bn.expires_at }}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <a href="{{ url_for('admin.delete_banner', banner_id=bn.id) }}" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">Delete</a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-style: italic;">No banners uploaded yet.</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Upload form -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; height: fit-content;">
+                    <h4 style="margin-bottom: 1rem;">Upload Carousel Banner</h4>
+                    <form action="{{ url_for('admin.add_banner') }}" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="bn-title">Banner Title</label>
+                            <input type="text" id="bn-title" name="title" class="form-control" placeholder="Flash sale! 40% Off">
+                        </div>
+                        <div class="form-group">
+                            <label for="bn-sub">Subtitle</label>
+                            <input type="text" id="bn-sub" name="subtitle" class="form-control" placeholder="Selected items limited stock">
+                        </div>
+                        <div class="form-group">
+                            <label for="bn-url">Target URL Link</label>
+                            <input type="text" id="bn-url" name="link_url" class="form-control" placeholder="/search?q=sale">
+                        </div>
+                        <div class="form-group">
+                            <label for="bn-img">Banner Image (Suggested: 1200x400)</label>
+                            <input type="file" id="bn-img" name="banner_image" accept="image/*" class="form-control" style="padding: 0.35rem;" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="bn-order">Display Sequence Order</label>
+                            <input type="number" id="bn-order" name="order_seq" class="form-control" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label for="bn-expires">Auto-Delete Date & Time (Optional)</label>
+                            <input type="datetime-local" id="bn-expires" name="expires_at" class="form-control">
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Upload Banner</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- DB BACKUPS TAB -->
+        <div class="tab-pane" id="tab-backups" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-family: var(--font-heading); margin-bottom: 0;">Database Management</h2>
+                <a href="{{ url_for('admin.create_backup') }}" class="btn btn-primary"><i class="fa-solid fa-download"></i> Create Instant Backup</a>
+            </div>
+            
+            <h4 style="margin-bottom: 1rem;">Saved Hot Backups</h4>
+            {% if backups %}
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Backup Filename</th>
+                                <th>Restore</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bk in backups %}
+                            <tr>
+                                <td style="font-family: monospace; font-size: 0.9rem; font-weight: 600;">{{ bk }}</td>
+                                <td>
+                                    <form action="{{ url_for('admin.restore_backup') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="hidden" name="filename" value="{{ bk }}">
+                                        <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;"><i class="fa-solid fa-clock-rotate-left"></i> Restore Backup</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">No database backups stored. Click above to run your first system hot backup.</p>
+            {% endif %}
+        </div>
+
+        <!-- COMMISSIONS TAB -->
+        <div class="tab-pane" id="tab-commissions" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Commission Management</h2>
+
+            <!-- Section: Unverified Commission Payments -->
+            <div style="margin-bottom: 3rem;">
+                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Pending Commission verifications</h3>
+                {% if pending_commission_payments %}
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Seller Store</th>
+                                    <th>Amount</th>
+                                    <th>Reference / UTR</th>
+                                    <th>Screenshot</th>
+                                    <th>Comments</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cp in pending_commission_payments %}
+                                <tr>
+                                    <td style="font-weight: 600;">{{ cp.store.name }}</td>
+                                    <td style="font-weight: 700; color: var(--primary);">INR {{ cp.amount|round(2) }}</td>
+                                    <td><span style="font-family: monospace; font-weight: 600;">{{ cp.transaction_id }}</span></td>
+                                    <td>
+                                        {% if cp.screenshot %}
+                                            <a href="/static/uploads/users/{{ cp.screenshot }}" target="_blank">View Proof Screenshot</a>
+                                        {% else %}
+                                            None
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ cp.description or '-' }}</td>
+                                    <td>
+                                        <div style="display: flex; gap: 0.5rem;">
+                                            <a href="{{ url_for('admin.approve_commission_payment', payment_id=cp.id) }}" class="btn btn-success" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;"><i class="fa-solid fa-check"></i> Mark as Paid</a>
+                                            <button type="button" onclick="openRejectCommissionModal({{ cp.id }}, this.getAttribute('data-store-name'))" data-store-name="{{ cp.store.name|e }}" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;"><i class="fa-solid fa-xmark"></i> Reject</button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); font-style: italic;">No pending commission verifications.</p>
+                {% endif %}
+            </div>
+
+            <!-- Section: Commission Payment History (all statuses, incl. Paid — can be rejected/reversed) -->
+            <div style="margin-bottom: 3rem;">
+                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Commission Payment History</h3>
+                {% if all_commission_payments %}
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Seller Store</th>
+                                    <th>Amount</th>
+                                    <th>Reference / UTR</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cp in all_commission_payments %}
+                                <tr>
+                                    <td style="font-weight: 600;">{{ cp.store.name }}</td>
+                                    <td style="font-weight: 700; color: var(--primary);">INR {{ cp.amount|round(2) }}</td>
+                                    <td><span style="font-family: monospace; font-weight: 600;">{{ cp.transaction_id }}</span></td>
+                                    <td style="font-size: 0.85rem; color: var(--text-secondary);">{{ cp.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <span class="discount-badge" style="background-color: {% if cp.status == 'Paid' %}#d1fae5{% elif cp.status == 'Rejected' %}#fee2e2{% else %}#fef3c7{% endif %}; color: {% if cp.status == 'Paid' %}#065f46{% elif cp.status == 'Rejected' %}#991b1b{% else %}#92400e{% endif %};">
+                                            {{ cp.status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if cp.status == 'Rejected' %}
+                                            <span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;" title="{{ cp.rejected_reason }}">Already rejected</span>
+                                        {% else %}
+                                            <button type="button" onclick="openRejectCommissionModal({{ cp.id }}, this.getAttribute('data-store-name'))" data-store-name="{{ cp.store.name|e }}" class="btn btn-danger" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;"><i class="fa-solid fa-xmark"></i> Reject{% if cp.status == 'Paid' %} Paid Commission{% endif %}</button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); font-style: italic;">No commission payments recorded yet.</p>
+                {% endif %}
+            </div>
+
+            <!-- Section: All Sellers & Commission Configuration -->
+            <div>
+                <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Sellers Commissions & Requests</h3>
+                
+                <!-- Search Box for Sellers Info -->
+                <div style="margin-bottom: 1.5rem; display: flex; gap: 1rem; align-items: center; background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1rem;">
+                    <i class="fa-solid fa-magnifying-glass" style="color: var(--text-secondary);"></i>
+                    <input type="text" id="seller-search-input" placeholder="Search sellers by name, email, ID, or status..." class="form-control" style="margin-bottom: 0; flex: 1; border: none; background: transparent; box-shadow: none; outline: none; padding: 0;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;" id="seller-search-count">Showing all sellers</span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Store Details</th>
+                                <th>Commission (%)</th>
+                                <th>Total Sold</th>
+                                <th>Last Paid Sales limit</th>
+                                <th>Current Due</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                                <th>Details</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sellers-table-body">
+                            {% for seller in all_sellers %}
+                            {% set commission_due = seller.commission_due %}
+                            <tr>
+                                <td style="font-weight: 600;">
+                                    {{ seller.name }}
+                                    <span style="font-size: 0.8rem; color: var(--text-muted); display: block;">ID: {{ seller.id }} | {{ seller.user.email }}</span>
+                                </td>
+                                <td>
+                                    <form action="{{ url_for('admin.change_commission', store_id=seller.id) }}" method="POST" style="display: flex; gap: 0.25rem; align-items: center;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <input type="number" name="commission_percentage" value="{{ seller.commission_percentage }}" min="0" max="100" step="0.1" class="form-control" style="width: 70px; padding: 0.25rem; font-size: 0.85rem;" required>
+                                        <button type="submit" class="btn btn-secondary" style="padding: 0.25rem 0.4rem; font-size: 0.75rem;"><i class="fa-solid fa-floppy-disk"></i></button>
+                                    </form>
+                                </td>
+                                <td>INR {{ seller.total_sales|round(2) }}</td>
+                                <td>INR {{ seller.sales_at_last_commission|round(2) }}</td>
+                                <td style="font-weight: 700; color: {% if commission_due > 0 %}var(--danger){% else %}var(--text-secondary){% endif %};">
+                                    INR {{ commission_due }}
+                                </td>
+                                <td>
+                                    {% if seller.commission_payment_status == 'Suspended' %}
+                                        <span class="discount-badge" style="background-color: var(--danger-light); color: var(--danger); font-weight: 700;">SUSPENDED</span>
+                                    {% elif seller.commission_payment_status == 'Submitted' %}
+                                        <span class="discount-badge" style="background-color: var(--primary-light); color: var(--primary);">Submitted</span>
+                                    {% elif seller.commission_payment_status == 'Requested' %}
+                                        <span class="discount-badge" style="background-color: var(--warning-light); color: var(--warning);">Requested</span>
+                                    {% else %}
+                                        <span class="discount-badge" style="background-color: var(--success-light); color: var(--success);">Paid</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if commission_due > 0 and seller.commission_payment_status == 'Paid' %}
+                                        <a href="{{ url_for('admin.request_commission', store_id=seller.id) }}" class="btn btn-primary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;"><i class="fa-solid fa-paper-plane"></i> Send Request</a>
+                                    {% else %}
+                                        <button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;" disabled>Sent / No Due</button>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-secondary view-seller-btn" data-seller-id="{{ seller.id }}" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;"><i class="fa-solid fa-eye"></i> View Profile</button>
+                                    <a href="{{ url_for('admin.export_seller_pdf', store_id=seller.id) }}" class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; margin-left: 0.25rem;"><i class="fa-solid fa-file-pdf"></i> Export PDF</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- NOTICES BOARD TAB -->
+        <div class="tab-pane" id="tab-notices" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Broadcast Notices Board</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Post notifications and instructions to sellers. You can target all sellers globally or a specific merchant dashboard.</p>
+            
+            <form action="{{ url_for('admin.add_notice') }}" method="POST" style="max-width: 600px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                
+                <div class="form-group">
+                    <label for="notice-target">Target Sellers</label>
+                    <select id="notice-target" name="target" class="form-control">
+                        <option value="all">Global (All Sellers)</option>
+                        {% for seller in all_sellers %}
+                            <option value="{{ seller.id }}">{{ seller.name }} (ID: {{ seller.id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="notice-msg">Notice Content / Instructions Text</label>
+                    <textarea id="notice-msg" name="message" class="form-control" rows="5" placeholder="Enter notice text here..." required></textarea>
+                </div>
+                
+                <button type="submit" class="btn btn-primary"><i class="fa-solid fa-bullhorn"></i> Publish Notice</button>
+            </form>
+            
+            <h3 style="font-family: var(--font-heading); margin-top: 3rem; margin-bottom: 1rem;">Active Notices</h3>
+            {% if notices %}
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Target</th>
+                                <th>Message</th>
+                                <th>Date Published</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for notice in notices %}
+                            <tr>
+                                <td style="font-weight: 600;">
+                                    {% if notice.store_id %}
+                                        <span class="discount-badge" style="background-color: var(--primary-light); color: var(--primary); font-size: 0.85rem;">
+                                            Store: {{ notice.store.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="discount-badge" style="background-color: var(--success-light); color: var(--success); font-size: 0.85rem;">
+                                            Global (All Sellers)
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td style="max-width: 400px; white-space: pre-wrap; font-size: 0.9rem; color: var(--text-secondary);">{{ notice.message }}</td>
+                                <td style="font-size: 0.85rem; color: var(--text-muted);">{{ notice.created_at.strftime('%d %b %Y %H:%M') }}</td>
+                                <td>
+                                    <a href="{{ url_for('admin.delete_notice', notice_id=notice.id) }}" class="btn btn-danger" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                        <i class="fa-solid fa-trash-can"></i> Delete
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); margin-top: 1rem;">No active notices posted yet.</p>
+            {% endif %}
+        </div>
+
+        <!-- SUB ADMINS TAB (Main Admin only) -->
+        <div class="tab-pane" id="tab-sub-admins" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Sub Admin Management</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Create, edit, block/unblock, delete, and reset passwords for Sub Admins. Sub Admins have access to all admin features except Global Settings.</p>
+
+            <!-- Create Sub Admin Form -->
+            <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; max-width: 500px;">
+                <h4 style="margin-bottom: 1rem;"><i class="fa-solid fa-user-plus" style="color: var(--primary);"></i> Create New Sub Admin</h4>
+                <form action="{{ url_for('admin.create_sub_admin') }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group">
+                        <label for="sa-username">Username</label>
+                        <input type="text" id="sa-username" name="username" class="form-control" placeholder="e.g. subadmin1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sa-email">Email Address</label>
+                        <input type="email" id="sa-email" name="email" class="form-control" placeholder="subadmin@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="sa-password">Password (min 6 characters)</label>
+                        <input type="password" id="sa-password" name="password" class="form-control" placeholder="Enter password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-plus"></i> Create Sub Admin</button>
+                </form>
+            </div>
+
+            <!-- Sub Admins List -->
+            <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Existing Sub Admins</h3>
+            {% if sub_admins %}
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Username</th>
+                                <th>Email</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for sa in sub_admins %}
+                            <tr>
+                                <td>#{{ sa.id }}</td>
+                                <td style="font-weight: 600;">{{ sa.username }}</td>
+                                <td>{{ sa.email }}</td>
+                                <td>
+                                    {% if sa.is_active %}
+                                        <span class="discount-badge" style="background-color: var(--success-light); color: var(--success);">Active</span>
+                                    {% else %}
+                                        <span class="discount-badge" style="background-color: var(--danger-light); color: var(--danger);">Blocked</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ sa.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+                                        <!-- Edit Button -->
+                                        <button type="button" class="btn btn-secondary" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;" onclick="openEditSubAdminModal({{ sa.id }}, '{{ sa.username }}', '{{ sa.email }}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>
+                                        
+                                        <!-- Block/Unblock Toggle -->
+                                        <a href="{{ url_for('admin.toggle_sub_admin', user_id=sa.id) }}" class="btn {% if sa.is_active %}btn-warning{% else %}btn-success{% endif %}" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;">
+                                            {% if sa.is_active %}<i class="fa-solid fa-ban"></i> Block{% else %}<i class="fa-solid fa-check"></i> Unblock{% endif %}
+                                        </a>
+                                        
+                                        <!-- Reset Password Button -->
+                                        <button type="button" class="btn btn-info" style="padding: 0.3rem 0.5rem; font-size: 0.75rem; color: white;" onclick="openResetPasswordModal({{ sa.id }}, '{{ sa.username }}')"><i class="fa-solid fa-key"></i> Reset Pwd</button>
+                                        
+                                        <!-- Delete -->
+                                        <a href="{{ url_for('admin.delete_sub_admin', user_id=sa.id) }}" class="btn btn-danger" style="padding: 0.3rem 0.5rem; font-size: 0.75rem;"><i class="fa-solid fa-trash-can"></i> Delete</a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">No Sub Admins created yet. Use the form above to create one.</p>
+            {% endif %}
+        </div>
+
+        <!-- COMPLAINTS TAB -->
+        <div class="tab-pane" id="tab-complaints" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Customer Product Delivery Complaints</h2>
+
+            {% if complaints %}
+                {% for comp in complaints %}
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+                    <div style="display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; margin-bottom: 1.5rem;">
+                        <div>
+                            <span style="font-size: 0.8rem; background-color: var(--danger-light); color: var(--danger); padding: 0.25rem 0.5rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;">Delivery Complaint</span>
+                            <h4 style="margin: 0.5rem 0 0 0; font-family: var(--font-heading);">Complaint ID: #{{ comp.id }} - Order: {{ comp.order.order_number }}</h4>
+                        </div>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Filed on: {{ comp.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 1.5rem;">
+                        <!-- Left: Issue and Proof -->
+                        <div>
+                            <h5 style="margin-bottom: 0.5rem; color: var(--text-primary); font-size: 0.95rem;">Customer Reported Details</h5>
+                            <p style="font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4; margin-bottom: 1rem;">
+                                <strong>Customer:</strong> {{ comp.user.username }} ({{ comp.user.email }})<br>
+                                <strong>Issue description:</strong> {{ comp.details }}
+                            </p>
+                            {% if comp.screenshot %}
+                                <a href="/static/uploads/users/{{ comp.screenshot }}" target="_blank" style="font-size: 0.85rem; font-weight: 600;"><i class="fa-solid fa-image"></i> View Customer Proof Screenshot</a>
+                            {% endif %}
+                        </div>
+
+                        <!-- Right: Order and Payment details -->
+                        <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem;">
+                            <h5 style="margin-top: 0; margin-bottom: 0.5rem; color: var(--text-primary); font-size: 0.9rem;">Order & Payment Reference</h5>
+                            <div><strong>Order Total Value:</strong> INR {{ comp.order.grand_total|round(2) }}</div>
+                            <div><strong>Payment Method:</strong> {{ comp.order.payment.payment_method }}</div>
+                            <div><strong>Transaction ID / UTR:</strong> {{ comp.order.payment.transaction_id or 'N/A' }}</div>
+                            <div><strong>Payment Status:</strong> {{ comp.order.payment.status }}</div>
+                            {% if comp.order.payment.screenshot_path %}
+                                <div style="margin-top: 0.5rem;">
+                                    <a href="/static/uploads/users/{{ comp.order.payment.screenshot_path }}" target="_blank"><i class="fa-solid fa-receipt"></i> View Order Payment Receipt Screenshot</a>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Seller Profile and warning form -->
+                    <div style="border-top: 1px solid var(--border-color); padding-top: 1.5rem; margin-top: 1.5rem;">
+                        {% set seller_store = comp.order.items[0].product.store %}
+                        <h5 style="margin-bottom: 0.5rem; color: var(--text-primary); font-size: 0.95rem;">Seller Responsible Profile</h5>
+                        <div style="display: flex; gap: 2rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                            <div><strong>Store Name:</strong> {{ seller_store.name }}</div>
+                            <div><strong>Tax ID:</strong> {{ seller_store.tax_number or 'N/A' }}</div>
+                            <div><strong>Aadhaar No:</strong> {{ seller_store.aadhaar_number or 'N/A' }}</div>
+                            <div><strong>Rating:</strong> ★ {{ seller_store.rating }}</div>
+                            <div><strong>Total Sales:</strong> INR {{ seller_store.total_sales|round(2) }}</div>
+                        </div>
+
+                        <form action="{{ url_for('admin.warn_seller_for_complaint', complaint_id=comp.id) }}" method="POST" style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-group" style="margin-bottom: 1rem;">
+                                <label for="warn-{{ comp.id }}" style="font-weight: 700; color: var(--danger); font-size: 0.85rem;">Send Reminder / Warning Notice to Seller</label>
+                                <textarea id="warn-{{ comp.id }}" name="warning_message" class="form-control" rows="2" placeholder="e.g. Warning: Customer reports product not delivered. Provide dispatch details immediately or face suspension." required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="background-color: var(--danger); border-color: var(--danger); font-size: 0.85rem; padding: 0.4rem 0.8rem;"><i class="fa-solid fa-triangle-exclamation"></i> Send Warning Notice</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">No pending product-not-delivered complaints.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Edit Sub Admin Modal -->
+<div id="edit-sub-admin-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 480px; max-width: 95%; padding: 2rem; box-shadow: var(--shadow-lg); position: relative;">
+        <button onclick="closeEditSubAdminModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; font-family: var(--font-heading);"><i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> Edit Sub Admin</h3>
+        <form id="edit-sub-admin-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="edit-sa-username">Username</label>
+                <input type="text" id="edit-sa-username" name="username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-sa-email">Email Address</label>
+                <input type="email" id="edit-sa-email" name="email" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="edit-sa-password">New Password (leave blank to keep current)</label>
+                <input type="password" id="edit-sa-password" name="password" class="form-control" placeholder="Enter new password (optional)">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+        </form>
+    </div>
+</div>
+
+<!-- Reset Password Modal -->
+<div id="reset-password-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 420px; max-width: 95%; padding: 2rem; box-shadow: var(--shadow-lg); position: relative;">
+        <button onclick="closeResetPasswordModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; font-family: var(--font-heading);"><i class="fa-solid fa-key" style="color: var(--primary);"></i> Reset Password for <span id="reset-pwd-username"></span></h3>
+        <form id="reset-password-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="new-password-input">New Password (min 6 characters)</label>
+                <input type="password" id="new-password-input" name="new_password" class="form-control" placeholder="Enter new password" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;"><i class="fa-solid fa-key"></i> Reset Password</button>
+        </form>
+    </div>
+</div>
+
+<!-- Reject Commission Payment Modal -->
+<div id="reject-commission-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 480px; max-width: 95%; padding: 2rem; box-shadow: var(--shadow-lg); position: relative;">
+        <button onclick="closeRejectCommissionModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; font-family: var(--font-heading);"><i class="fa-solid fa-xmark" style="color: var(--danger);"></i> Reject Commission Payment for <span id="reject-commission-store"></span></h3>
+        <form id="reject-commission-form" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="rejection-reason-input">Rejection Reason (shown to the seller)</label>
+                <textarea id="rejection-reason-input" name="rejection_reason" class="form-control" rows="4">Your payment details are incorrect. Therefore, the commission payment has been cancelled by the verification team. If you face any issues, please submit a complaint with the appropriate proof. Thank you.</textarea>
+            </div>
+            <button type="submit" class="btn btn-danger" style="width: 100%;"><i class="fa-solid fa-xmark"></i> Confirm Rejection</button>
+        </form>
+    </div>
+</div>
+
+<!-- Seller Info Modal -->
+<div id="seller-info-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); width: 620px; max-width: 95%; padding: 2rem; box-shadow: var(--shadow-lg); max-height: 90vh; overflow-y: auto; position: relative;">
+        <button onclick="closeSellerModal()" style="position: absolute; top: 1rem; right: 1rem; background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">&times;</button>
+        <h3 style="margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; font-family: var(--font-heading);"><i class="fa-solid fa-store" style="color: var(--primary);"></i> Seller Profile Information</h3>
+        <div id="seller-modal-content">
+            <!-- Populated dynamically -->
+        </div>
+    </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
+        document.querySelectorAll('.sidebar-nav-item').forEach(item => item.classList.remove('active'));
+        
+        const pane = document.getElementById(`tab-${tabId}`);
+        if (pane) pane.style.display = 'block';
+        
+        const btn = document.getElementById(`tab-btn-${tabId}`);
+        if (btn) btn.classList.add('active');
+
+        // Update mobile topbar label
+        const titleEl = document.getElementById('admin-topbar-title');
+        if (titleEl && btn) {
+            titleEl.textContent = btn.innerText.trim();
+        }
+
+        // Close drawer on mobile after selection
+        closeSidebar();
+    }
+
+    /* ---------- Drawer helpers ---------- */
+    function toggleSidebar() {
+        const sidebar  = document.getElementById('admin-sidebar');
+        const backdrop = document.getElementById('admin-sidebar-backdrop');
+        const isOpen   = sidebar.classList.contains('sidebar-open');
+        if (isOpen) { closeSidebar(); } else { openSidebar(); }
+    }
+
+    function openSidebar() {
+        document.getElementById('admin-sidebar').classList.add('sidebar-open');
+        document.getElementById('admin-sidebar-backdrop').classList.add('backdrop-visible');
+        document.body.style.overflow = 'hidden'; // prevent background scroll
+    }
+
+    function closeSidebar() {
+        document.getElementById('admin-sidebar').classList.remove('sidebar-open');
+        document.getElementById('admin-sidebar-backdrop').classList.remove('backdrop-visible');
+        document.body.style.overflow = '';
+    }
+
+    // Charting and Interactive functions
+    document.addEventListener('DOMContentLoaded', () => {
+        // Handle tab selection on load via hash
+        const hash = window.location.hash.replace('#', '');
+        if (hash && document.getElementById('tab-' + hash)) {
+            switchTab(hash);
+        } else {
+            switchTab('overview');
+        }
+
+        // Draw Sales Charts if canvas elements exist
+        const dayCanvas = document.getElementById('admin-day-sales-chart');
+        const monthCanvas = document.getElementById('admin-month-sales-chart');
+        
+        if (dayCanvas && monthCanvas) {
+            try {
+                const dayLabels = {{ day_labels|tojson }};
+                const dayData = {{ day_data|tojson }};
+                CanvasCharts.drawLineChart('admin-day-sales-chart', dayLabels, dayData, 'Day-wise Sales ({{ current_month_name }})', '#2563eb', 'rgba(37, 99, 235, 0.15)');
+
+                const monthLabels = {{ month_labels|tojson }};
+                const monthData = {{ month_data|tojson }};
+                CanvasCharts.drawBarChart('admin-month-sales-chart', monthLabels, monthData, 'Monthly Sales Volume (INR)', '#10b981');
+            } catch (chartErr) {
+                console.error('Chart rendering failed (non-fatal):', chartErr);
+            }
+        }
+
+        // Sellers Search feature
+        const searchInput = document.getElementById('seller-search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const query = this.value.toLowerCase().trim();
+                const rows = document.querySelectorAll('#sellers-table-body tr');
+                let visibleCount = 0;
+                
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    if (text.includes(query)) {
+                        row.style.display = '';
+                        visibleCount++;
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+                
+                const countLabel = document.getElementById('seller-search-count');
+                if (query) {
+                    countLabel.textContent = `Found ${visibleCount} seller(s)`;
+                } else {
+                    countLabel.textContent = 'Showing all sellers';
+                }
+            });
+        }
+
+        // Sellers Info Modal Trigger Setup
+        const sellersData = {
+            {% for seller in all_sellers %}
+            "{{ seller.id }}": {
+                id: {{ seller.id }},
+                name: {{ seller.name|tojson }},
+                username: {{ seller.user.username|tojson }},
+                email: {{ seller.user.email|tojson }},
+                description: {{ seller.description|tojson }},
+                status: {{ seller.status|tojson }},
+                created_at: "{{ seller.created_at.strftime('%Y-%m-%d %H:%M') }}",
+                rating: {{ seller.rating|default(0, true)|tojson }},
+                balance: {{ seller.balance|default(0, true)|tojson }},
+                total_sales: {{ seller.total_sales|default(0, true)|tojson }},
+                commission_percentage: {{ seller.commission_percentage|default(0, true)|tojson }},
+                aadhaar_number: {{ seller.aadhaar_number|tojson }},
+                aadhaar_front: {{ seller.aadhaar_front|tojson }},
+                aadhaar_back: {{ seller.aadhaar_back|tojson }},
+                photo: {{ seller.photo|tojson }},
+                signature: {{ seller.signature|tojson }},
+                upi_id: {{ seller.upi_id|tojson }},
+                qr_code_path: {{ seller.qr_code_path|tojson }}
+            },
+            {% endfor %}
+        };
+
+        document.querySelectorAll('.view-seller-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sid = btn.getAttribute('data-seller-id');
+                const sdata = sellersData[sid];
+                if (sdata) {
+                    openSellerModal(sdata);
+                }
+            });
+        });
+    });
+
+    function openSellerModal(sellerData) {
+        const modal = document.getElementById('seller-info-modal');
+        const content = document.getElementById('seller-modal-content');
+        
+        content.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 1rem; font-size: 0.95rem; line-height: 1.4;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div><strong>Store ID:</strong> #${sellerData.id}</div>
+                    <div><strong>Store Name:</strong> ${sellerData.name}</div>
+                    <div><strong>Username:</strong> ${sellerData.username}</div>
+                    <div><strong>Email:</strong> ${sellerData.email}</div>
+                    <div><strong>Account Status:</strong> <span style="font-weight: 700; color: ${sellerData.status === 'Approved' ? 'var(--success)' : 'var(--danger)'};">${sellerData.status}</span></div>
+                    <div><strong>Created At:</strong> ${sellerData.created_at}</div>
+                    <div><strong>Rating:</strong> ★ ${sellerData.rating}</div>
+                    <div><strong>Wallet Balance:</strong> INR ${sellerData.balance.toFixed(2)}</div>
+                    <div><strong>Total Sales:</strong> INR ${sellerData.total_sales.toFixed(2)}</div>
+                    <div><strong>Commission Rate:</strong> ${sellerData.commission_percentage}%</div>
+                </div>
+                <div><strong>Description:</strong><br>${sellerData.description || 'N/A'}</div>
+                
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;">
+                <h4 style="margin: 0 0 0.5rem; color: var(--primary); font-family: var(--font-heading);">KYC Documents</h4>
+                <div><strong>Aadhaar Number:</strong> ${sellerData.aadhaar_number || 'N/A'}</div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-top: 0.5rem;">
+                    <div>
+                        <strong>Aadhaar Front:</strong><br>
+                        ${sellerData.aadhaar_front ? `<a href="/static/uploads/users/${sellerData.aadhaar_front}" target="_blank"><img src="/static/uploads/users/${sellerData.aadhaar_front}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                    </div>
+                    <div>
+                        <strong>Aadhaar Back:</strong><br>
+                        ${sellerData.aadhaar_back ? `<a href="/static/uploads/users/${sellerData.aadhaar_back}" target="_blank"><img src="/static/uploads/users/${sellerData.aadhaar_back}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                    </div>
+                    <div>
+                        <strong>Profile Photo:</strong><br>
+                        ${sellerData.photo ? `<a href="/static/uploads/users/${sellerData.photo}" target="_blank"><img src="/static/uploads/users/${sellerData.photo}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                    </div>
+                    <div>
+                        <strong>Signature:</strong><br>
+                        ${sellerData.signature ? `<a href="/static/uploads/users/${sellerData.signature}" target="_blank"><img src="/static/uploads/users/${sellerData.signature}" style="width: 100%; height: 110px; object-fit: cover; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem;"></a>` : '<span class="text-muted">Not Uploaded</span>'}
+                    </div>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.5rem 0;">
+                <h4 style="margin: 0 0 0.5rem; color: var(--primary); font-family: var(--font-heading);">Commission Payment details</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div><strong>UPI ID:</strong> ${sellerData.upi_id || 'N/A'}</div>
+                    <div>
+                        <strong>UPI QR Code:</strong><br>
+                        ${sellerData.qr_code_path ? `<a href="/static/uploads/store/${sellerData.qr_code_path}" target="_blank"><img src="/static/uploads/store/${sellerData.qr_code_path}" style="width: 130px; height: 130px; object-fit: contain; border-radius: 4px; border: 1px solid var(--border-color); margin-top: 0.25rem; background: white; padding: 0.25rem;"></a>` : '<span class="text-muted">None (QR removed/not uploaded)</span>'}
+                    </div>
+                </div>
+            </div>
+        `;
+        openModal('seller-info-modal');
+    }
+
+    function closeSellerModal() {
+        closeModal('seller-info-modal');
+    }
+
+    /* ---------- Sub Admin Modal Functions ---------- */
+    function openEditSubAdminModal(userId, username, email) {
+        document.getElementById('edit-sa-username').value = username;
+        document.getElementById('edit-sa-email').value = email;
+        document.getElementById('edit-sa-password').value = '';
+        document.getElementById('edit-sub-admin-form').action = '/admin/sub-admin/edit/' + userId;
+        openModal('edit-sub-admin-modal');
+    }
+
+    function closeEditSubAdminModal() {
+        closeModal('edit-sub-admin-modal');
+    }
+
+    function openResetPasswordModal(userId, username) {
+        document.getElementById('reset-pwd-username').textContent = username;
+        document.getElementById('reset-password-form').action = '/admin/sub-admin/reset-password/' + userId;
+        openModal('reset-password-modal');
+    }
+
+    function closeResetPasswordModal() {
+        closeModal('reset-password-modal');
+    }
+
+    function openRejectCommissionModal(paymentId, storeName) {
+        document.getElementById('reject-commission-store').textContent = storeName;
+        document.getElementById('reject-commission-form').action = '/admin/commission/reject/' + paymentId;
+        openModal('reject-commission-modal');
+    }
+
+    function closeRejectCommissionModal() {
+        closeModal('reject-commission-modal');
+    }
+
+    // Close modals when clicking outside content area
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('edit-sub-admin-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeEditSubAdminModal();
+        });
+        document.getElementById('reset-password-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeResetPasswordModal();
+        });
+        document.getElementById('reject-commission-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeRejectCommissionModal();
+        });
+        document.getElementById('seller-info-modal').addEventListener('click', function(e) {
+            if (e.target === this) closeSellerModal();
+        });
+    });
+</script>
+{% endblock %}

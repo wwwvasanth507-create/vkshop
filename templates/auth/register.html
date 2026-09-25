@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+{% block title %}Create Account - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 450px; margin: 3rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <h2 style="text-align: center; margin-bottom: 2rem; font-family: var(--font-heading);">Create an Account</h2>
+    
+    <form action="{{ url_for('auth.register') }}" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Username -->
+        <div class="form-group">
+            <label for="username">Username</label>
+            <input type="text" id="username" name="username" class="form-control" placeholder="Choose a username" required>
+        </div>
+        
+        <!-- Email -->
+        <div class="form-group">
+            <label for="email">Email Address</label>
+            <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email" required>
+        </div>
+        
+        <!-- Password -->
+        <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" class="form-control" placeholder="At least 6 characters" required>
+        </div>
+        
+        <!-- Confirm Password -->
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password</label>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Re-enter password" required>
+        </div>
+        
+        <!-- Role Selection -->
+        <div class="form-group">
+            <label for="role">Select Account Type</label>
+            <select id="role" name="role" class="form-control" style="cursor: pointer;" onchange="toggleRoleFields()">
+                <option value="customer">Customer (Buy products)</option>
+                <option value="seller">Seller (Sell products & manage inventory)</option>
+            </select>
+        </div>
+
+        <!-- Customer Address Fields (Optional) -->
+        <div id="customer-address-fields" style="display: block; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Optional Delivery Address (CID)</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="door_no">Door No</label>
+                    <input type="text" id="door_no" name="door_no" class="form-control" placeholder="e.g. 4B">
+                </div>
+                <div class="form-group">
+                    <label for="street">Street</label>
+                    <input type="text" id="street" name="street" class="form-control" placeholder="e.g. MG Road">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="village_city">Village/City name</label>
+                    <input type="text" id="village_city" name="village_city" class="form-control" placeholder="e.g. Bangalore">
+                </div>
+                <div class="form-group">
+                    <label for="post_name">Post name</label>
+                    <input type="text" id="post_name" name="post_name" class="form-control" placeholder="e.g. MG Road PO">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="taluk_name">Taluk name</label>
+                    <input type="text" id="taluk_name" name="taluk_name" class="form-control" placeholder="e.g. North Taluk">
+                </div>
+                <div class="form-group">
+                    <label for="district">District</label>
+                    <input type="text" id="district" name="district" class="form-control" placeholder="e.g. Bangalore Urban">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="state">State</label>
+                    <input type="text" id="state" name="state" class="form-control" placeholder="e.g. Karnataka">
+                </div>
+                <div class="form-group">
+                    <label for="country">Country</label>
+                    <input type="text" id="country" name="country" class="form-control" value="India">
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="pin_code">Pin code</label>
+                    <input type="text" id="pin_code" name="pin_code" class="form-control" placeholder="e.g. 560001">
+                </div>
+                <div class="form-group">
+                    <label for="landmark">Nearby Famous Landmark</label>
+                    <input type="text" id="landmark" name="landmark" class="form-control" placeholder="e.g. Near Metro Station">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="contact_number">Contact Number</label>
+                <input type="text" id="contact_number" name="contact_number" class="form-control" placeholder="e.g. 9876543210">
+            </div>
+        </div>
+
+        <!-- Seller Documents Fields -->
+        <div id="seller-verification-fields" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Seller Verification Documents</h4>
+            
+            <div class="form-group">
+                <label for="aadhaar_number">Aadhaar Number</label>
+                <input type="text" id="aadhaar_number" name="aadhaar_number" class="form-control" placeholder="Enter 12-digit Aadhaar Number">
+            </div>
+            <div class="form-group">
+                <label for="aadhaar_front">Upload copy of Aadhaar Card (Front side)</label>
+                <input type="file" id="aadhaar_front" name="aadhaar_front" class="form-control-file" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label for="aadhaar_back">Upload copy of Aadhaar Card (Back side)</label>
+                <input type="file" id="aadhaar_back" name="aadhaar_back" class="form-control-file" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label for="photo">Upload Photo</label>
+                <input type="file" id="photo" name="photo" class="form-control-file" accept="image/*">
+            </div>
+            <div class="form-group">
+                <label for="signature">Upload Signature</label>
+                <input type="file" id="signature" name="signature" class="form-control-file" accept="image/*">
+            </div>
+            
+            <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-top: 1.5rem; background-color: var(--bg-tertiary);">
+                <h5 style="color: var(--danger); margin-bottom: 0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> Legal Agreement</h5>
+                <p style="font-size: 0.85rem; line-height: 1.4; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                    If you are not sending the product, take commission from the users and not pay platform commission, and if your address is used, the FIR Police case will be appointed to you. You will face the consequences.
+                </p>
+                <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
+                    <input type="checkbox" id="agreed" name="agreed" style="margin-top: 0.25rem;">
+                    <label for="agreed" style="font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">I read and agree to the consequences of the agreement</label>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;">Sign Up</button>
+    </form>
+    
+    <script>
+        function toggleRoleFields() {
+            var role = document.getElementById('role').value;
+            var customerDiv = document.getElementById('customer-address-fields');
+            var sellerDiv = document.getElementById('seller-verification-fields');
+            
+            if (role === 'seller') {
+                customerDiv.style.display = 'none';
+                sellerDiv.style.display = 'block';
+                
+                // Make seller fields required when active
+                document.getElementById('aadhaar_number').setAttribute('required', 'true');
+                document.getElementById('aadhaar_front').setAttribute('required', 'true');
+                document.getElementById('aadhaar_back').setAttribute('required', 'true');
+                document.getElementById('photo').setAttribute('required', 'true');
+                document.getElementById('signature').setAttribute('required', 'true');
+                document.getElementById('agreed').setAttribute('required', 'true');
+            } else {
+                customerDiv.style.display = 'block';
+                sellerDiv.style.display = 'none';
+                
+                // Remove required status
+                document.getElementById('aadhaar_number').removeAttribute('required');
+                document.getElementById('aadhaar_front').removeAttribute('required');
+                document.getElementById('aadhaar_back').removeAttribute('required');
+                document.getElementById('photo').removeAttribute('required');
+                document.getElementById('signature').removeAttribute('required');
+                document.getElementById('agreed').removeAttribute('required');
+            }
+        }
+    </script>
+    
+    <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+        Already have an account? <a href="{{ url_for('auth.login') }}" style="font-weight: 600;">Sign In</a>
+    </div>
+</div>
+{% endblock %}

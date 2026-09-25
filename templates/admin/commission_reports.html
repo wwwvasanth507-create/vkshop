@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Commission Reports - VKshop{% endblock %}
+
+{% block content %}
+<div class="container" style="max-width: 1100px; margin: 2rem auto; padding: 0 1rem;">
+    <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">
+        <i class="fa-solid fa-flag text-primary"></i> Commission Reports
+    </h2>
+    
+    <div style="display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+        <input type="text" id="search-reports" class="form-control" placeholder="Search reports..." style="max-width: 350px;">
+    </div>
+    
+    {% if reports %}
+    <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for report in reports %}
+        <div class="report-card" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <h4 style="margin: 0 0 0.25rem;">Report #{{ report.id }} — {{ report.store.name }}</h4>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">
+                        {{ report.created_at.strftime('%d %b %Y %H:%M') }} | 
+                        Payment ID: {{ report.commission_payment_id or 'N/A' }}
+                    </span>
+                </div>
+                <span class="discount-badge" style="background-color: {% if report.status == 'Open' %}var(--danger-light){% elif report.status == 'Resolved' %}var(--primary-light){% else %}var(--success-light){% endif %}; color: {% if report.status == 'Open' %}var(--danger){% elif report.status == 'Resolved' %}var(--primary){% else %}var(--success){% endif %};">
+                    {{ report.status }}
+                </span>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+                <strong>Explanation:</strong>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0;">{{ report.explanation }}</p>
+            </div>
+            
+            {% if report.proof_file %}
+            <div style="margin-bottom: 1rem;">
+                <a href="/static/uploads/users/{{ report.proof_file }}" target="_blank" class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.85rem;">
+                    <i class="fa-solid fa-paperclip"></i> View Attachment
+                </a>
+            </div>
+            {% endif %}
+            
+            {% if report.admin_reply %}
+            <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1rem;">
+                <strong style="color: var(--primary);"><i class="fa-solid fa-reply"></i> Admin Reply:</strong>
+                <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0.5rem 0;">{{ report.admin_reply }}</p>
+            </div>
+            {% endif %}
+            
+            {% if report.status == 'Open' %}
+            <div style="border-top: 1px solid var(--border-color); padding-top: 1rem; margin-top: 1rem;">
+                <form action="{{ url_for('admin.reply_commission_report', report_id=report.id) }}" method="POST" style="margin-bottom: 1rem;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-group" style="margin-bottom: 0.75rem;">
+                        <label>Reply to Seller</label>
+                        <textarea name="admin_reply" class="form-control" rows="3" placeholder="Enter your reply..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="padding: 0.4rem 1rem;">
+                        <i class="fa-solid fa-reply"></i> Reply & Resolve
+                    </button>
+                </form>
+                <a href="{{ url_for('admin.close_commission_report', report_id=report.id) }}" class="btn btn-secondary" style="padding: 0.4rem 1rem;" onclick="return confirm('Close this report? It will be marked as Closed.')">
+                    <i class="fa-solid fa-check"></i> Mark as Closed
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+        <i class="fa-solid fa-flag" style="font-size: 3rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i>
+        <p>No commission reports yet.</p>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const searchInput = document.getElementById('search-reports');
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            document.querySelectorAll('.report-card').forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

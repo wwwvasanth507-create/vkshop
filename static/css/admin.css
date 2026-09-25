@@ -1,0 +1,108 @@
+/* admin.css - Admin Specific Stylesheet */
+
+/* Resized table wrapper horizontal scrollbar for Admin page */
+.table-wrapper {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-color) var(--bg-tertiary);
+}
+
+.table-wrapper::-webkit-scrollbar,
+table::-webkit-scrollbar {
+    height: 8px !important;
+    width: 8px !important;
+}
+
+.table-wrapper::-webkit-scrollbar-track,
+table::-webkit-scrollbar-track {
+    background: var(--bg-tertiary) !important;
+    border-radius: var(--radius-sm) !important;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb,
+table::-webkit-scrollbar-thumb {
+    background: var(--border-color) !important;
+    border-radius: var(--radius-sm) !important;
+    border: 2px solid var(--bg-secondary) !important;
+}
+
+.table-wrapper::-webkit-scrollbar-thumb:hover,
+table::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted) !important;
+}
+
+/* Admin Dashboard Specific Enhancements */
+.admin-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+}
+
+/* ============================================================
+   PREMIUM SIDEBAR MENU REDESIGN
+   ============================================================ */
+
+.dashboard-sidebar {
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-xl) !important;
+    box-shadow: var(--shadow-md) !important;
+    padding: 2rem 1.5rem !important;
+    transition: all var(--transition-normal);
+}
+
+.sidebar-nav-item {
+    margin-bottom: 0.4rem;
+}
+
+.sidebar-nav-item a {
+    border-left: 3px solid transparent;
+    padding: 0.8rem 1.2rem !important;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    color: var(--text-secondary);
+    transition: all var(--transition-fast) !important;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+/* Hover effects with micro-animations */
+.sidebar-nav-item a:hover {
+    background-color: var(--primary-light) !important;
+    color: var(--primary) !important;
+    border-left-color: var(--primary-hover);
+    transform: translateX(3px);
+}
+
+/* Active indicator tab */
+.sidebar-nav-item.active a {
+    background-color: var(--primary) !important;
+    color: white !important;
+    border-left-color: var(--accent) !important;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+}
+
+.sidebar-nav-item.active a i {
+    color: var(--accent) !important;
+}
+
+.sidebar-nav-item a i {
+    transition: transform var(--transition-fast);
+}
+
+.sidebar-nav-item a:hover i {
+    transform: scale(1.15);
+}
+
+/* Mobile sliding drawer layout adaptations */
+@media (max-width: 992px) {
+    .dashboard-sidebar {
+        border-radius: 0 !important;
+        background-color: var(--bg-secondary) !important;
+        box-shadow: 6px 0 32px rgba(0, 0, 0, 0.15) !important;
+    }
+}

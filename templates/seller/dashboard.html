@@ -1,0 +1,1101 @@
+{% extends 'base.html' %}
+{% block title %}Seller Portal - VKshop{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/seller.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+
+    <!-- Mobile Top-Bar with hamburger -->
+    <div class="seller-mobile-topbar" id="seller-mobile-topbar">
+        <button class="seller-hamburger" id="seller-hamburger" onclick="toggleSidebar()" aria-label="Open menu" style="display: flex; align-items: center; justify-content: center; background: none; border: none; padding: 0; color: var(--text-primary); cursor: pointer;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="4" y1="6" x2="20" y2="6"></line>
+                <line x1="4" y1="12" x2="15" y2="12"></line>
+                <line x1="4" y1="18" x2="10" y2="18"></line>
+            </svg>
+        </button>
+        <span class="seller-topbar-title" id="seller-topbar-title">Overview</span>
+        <div style="width:44px;"></div><!-- spacer for balance -->
+    </div>
+
+    <!-- Backdrop overlay (mobile only) -->
+    <div class="seller-sidebar-backdrop" id="seller-sidebar-backdrop" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar Controls -->
+    <aside class="dashboard-sidebar" id="seller-sidebar">
+        <!-- Mobile close button -->
+        <button class="seller-sidebar-close" id="seller-sidebar-close" onclick="closeSidebar()" aria-label="Close menu">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+
+        <div style="text-align: center; margin-bottom: 2rem;">
+            {% if store.logo %}
+                <img src="/static/uploads/store/{{ store.logo }}" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin-bottom: 0.75rem; border: 1px solid var(--border-color);">
+            {% else %}
+                <div style="width: 80px; height: 80px; background-color: var(--primary-light); color: var(--primary); font-size: 2.5rem; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
+                    {{ store.name[0]|upper }}
+                </div>
+            {% endif %}
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.15rem;">{{ store.name }}</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Seller Dashboard</span>
+        </div>
+
+        <ul class="sidebar-nav">
+            <li class="sidebar-nav-item active" id="tab-btn-home"><a href="#home" onclick="switchTab('home','Overview')"><i class="fa-solid fa-gauge"></i> Overview</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-products"><a href="#products" onclick="switchTab('products','Products Catalog')"><i class="fa-solid fa-boxes-stacked"></i> Products Catalog</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-orders"><a href="#orders" onclick="switchTab('orders','Orders')"><i class="fa-solid fa-bag-shopping"></i> Orders</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-returns"><a href="#returns" onclick="switchTab('returns','Return Requests')"><i class="fa-solid fa-rotate-left"></i> Return Requests</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-reviews"><a href="#reviews" onclick="switchTab('reviews','Reviews & Ratings')"><i class="fa-solid fa-star"></i> Reviews & Ratings</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-qa"><a href="#qa" onclick="switchTab('qa','Questions Hub')"><i class="fa-solid fa-comments"></i> Questions Hub</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-commission"><a href="#commission" onclick="switchTab('commission','Commission Status')"><i class="fa-solid fa-percent"></i> Commission Status</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('seller.commission_report') }}"><i class="fa-solid fa-flag"></i> Commission Report</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-analytics"><a href="#analytics" onclick="switchTab('analytics','Store Analytics')"><i class="fa-solid fa-chart-line"></i> Store Analytics</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-tickets"><a href="#tickets" onclick="switchTab('tickets','Support Tickets')"><i class="fa-solid fa-headset"></i> Support Tickets</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-notices"><a href="#notices" onclick="switchTab('notices','Announcements')"><i class="fa-solid fa-bullhorn"></i> Announcements</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('seller.verifiers') }}"><i class="fa-solid fa-user-gear"></i> Payment Verifiers</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('seller.download_cid') }}"><i class="fa-solid fa-print"></i> Print CID Sheets</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-feedback"><a href="#feedback" onclick="switchTab('feedback','Platform Feedback')"><i class="fa-solid fa-message"></i> Platform Feedback</a></li>
+            <li class="sidebar-nav-item"><a href="{{ url_for('seller.store_settings') }}"><i class="fa-solid fa-gears"></i> Store Settings</a></li>
+        </ul>
+    </aside>
+    
+    <!-- Tab Sections -->
+    <section>
+        <div class="tab-pane active" id="tab-home">
+            {% if False and show_commission_alert %}
+            <div class="alert alert-{{ 'danger' if store.commission_payment_status == 'Suspended' else ('info' if store.commission_payment_status == 'Submitted' else 'warning') }}" style="margin-bottom: 2rem;">
+                <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> Platform Commission Payment Required</h4>
+                <p style="margin-bottom: 1rem; font-size: 0.9rem;">
+                    {% if store.commission_payment_status == 'Suspended' %}
+                        <strong>Account Suspended:</strong> You failed to pay the platform commission within 3 days. All your products show "Not available" to buyers.
+                    {% elif store.commission_payment_status == 'Submitted' %}
+                        <strong>Awaiting Verification:</strong> You submitted payment proof. Admin is reviewing your commission transaction details.
+                    {% else %}
+                        <strong>Payment Requested:</strong> Admin requested commission payment. Please pay within 3 days to avoid account suspension and product unavailability.
+                    {% endif %}
+                </p>
+                {% if store.commission_payment_status != 'Submitted' %}
+                    <a href="{{ url_for('seller.pay_commission') }}" class="btn btn-primary" style="background-color: var(--primary); border-color: var(--primary);"><i class="fa-solid fa-qrcode"></i> Scan & Pay Commission</a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            {% if notices %}
+            <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+                <h3 style="margin-top: 0; margin-bottom: 1rem; font-family: var(--font-heading); color: var(--text-primary);"><i class="fa-solid fa-bullhorn text-primary"></i> Administrative Notices</h3>
+                {% for notice in notices %}
+                    <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1rem; {% if loop.last %}border-bottom: none; padding-bottom: 0; margin-bottom: 0;{% endif %}">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); float: right;">{{ notice.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                        <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.4;">{{ notice.message }}</p>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Store Performance</h2>
+            
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-card-title">Lifetime Sales</span>
+                    <span class="stat-card-value">INR {{ sales_total|round(2) }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Order Count</span>
+                    <span class="stat-card-value">{{ orders_count }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Product Views</span>
+                    <span class="stat-card-value">{{ total_views }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Product Clicks</span>
+                    <span class="stat-card-value">{{ total_clicks }}</span>
+                </div>
+            </div>
+
+            <!-- Product Clicks Analytics -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+                <!-- Highest Click Product -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; justify-content: space-between;">
+                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-family: var(--font-heading);"><i class="fa-solid fa-arrow-trend-up text-primary"></i> Most Clicked Product</h3>
+                    {% if highest_click_product and highest_click_product.clicks > 0 %}
+                        <div style="display: flex; gap: 1rem; align-items: center;">
+                            <img src="/static/uploads/products/{{ highest_click_product.main_image }}" style="width: 80px; height: 80px; object-fit: contain; border-radius: var(--radius-md); border: 1px solid var(--border-color); padding: 0.25rem; background: white;">
+                            <div>
+                                <h4 style="margin: 0 0 0.25rem 0; font-size: 1.1rem; font-weight: 700;">{{ highest_click_product.name }}</h4>
+                                <span style="font-size: 0.85rem; color: var(--text-secondary);">SKU: {{ highest_click_product.sku }}</span>
+                                <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin-top: 0.5rem;">
+                                    {{ highest_click_product.clicks }} clicks
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-style: italic; margin: 0;">No product clicks tracked yet.</p>
+                    {% endif %}
+                </div>
+                
+                <!-- All Products Clicks Table -->
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <h3 style="margin-top: 0; margin-bottom: 1rem; font-family: var(--font-heading);"><i class="fa-solid fa-list-ol"></i> Product Click Counts</h3>
+                    <div style="max-height: 200px; overflow-y: auto;">
+                        <table class="table" style="font-size: 0.85rem; margin-bottom: 0;">
+                            <thead>
+                                <tr>
+                                    <th>Product Name</th>
+                                    <th>Clicks</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prod in products|sort(attribute='clicks', reverse=true) %}
+                                <tr>
+                                    <td><span class="product-name-col" title="{{ prod.name }}">{{ prod.name }}</span></td>
+                                    <td style="font-weight: 700; color: var(--primary);">{{ prod.clicks }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Canvas Graphs -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem; margin-bottom: 2rem;">
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <canvas id="sales-chart" style="width: 100%; height: 240px;"></canvas>
+                </div>
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; box-shadow: var(--shadow-sm);">
+                    <canvas id="views-chart" style="width: 100%; height: 240px;"></canvas>
+                </div>
+            </div>
+            <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; box-shadow: var(--shadow-sm);">
+                <canvas id="clicks-chart" style="width: 100%; height: 240px;"></canvas>
+            </div>
+            
+            <!-- Low stock alerts details disabled -->
+            {% if False and low_stock %}
+            <div class="alert alert-warning" style="margin-top: 2rem;">
+                <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-exclamation"></i> Low Stock Alerts!</h4>
+                <ul style="padding-left: 1.25rem; font-size: 0.9rem;">
+                    {% for prod, var in low_stock %}
+                    <li>Product <strong>{{ prod.name }}</strong> (Variant SKU: {{ var.sku }}, Size: {{ var.size or 'N/A' }}, Color: {{ var.color or 'N/A' }}) has only <strong>{{ var.stock }}</strong> remaining.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- PRODUCTS TAB -->
+        <div class="tab-pane" id="tab-products" style="display: none;">
+            <div class="products-tab-header">
+                <h2 style="font-family: var(--font-heading); margin-bottom: 0;">My Products</h2>
+                <a href="{{ url_for('seller.add_product') }}" class="btn btn-primary" id="add-product-btn"><i class="fa-solid fa-plus"></i> Add Product</a>
+            </div>
+
+            {% if products %}
+
+                <!-- ===== DESKTOP TABLE VIEW (hidden on mobile) ===== -->
+                <div class="products-table-view">
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Product Details</th>
+                                    <th>Base Price</th>
+                                    <th>Offer Price</th>
+                                    <th>SKU</th>
+                                    <th>Variants</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for prod in products %}
+                                <tr>
+                                    <td style="display: flex; align-items: center; gap: 0.75rem; white-space: nowrap;">
+                                        <img src="/static/uploads/products/{{ prod.main_image }}" style="width: 44px; height: 44px; object-fit: contain; border-radius: 6px; border: 1px solid var(--border-color); flex-shrink:0;">
+                                        <strong style="font-size: 0.95rem;" class="product-name-col" title="{{ prod.name }}">{{ prod.name }}</strong>
+                                    </td>
+                                    <td>INR {{ prod.base_price }}</td>
+                                    <td style="font-weight: 700; color: var(--primary);">INR {{ prod.offer_price|round(2) }}</td>
+                                    <td style="font-size: 0.82rem; color: var(--text-secondary); font-family: monospace;">{{ prod.sku }}</td>
+                                    <td style="text-align: center;">{{ prod.variants|length }}</td>
+                                    <td>
+                                        <div style="display: flex; gap: 0.4rem; align-items: center;">
+                                            <button type="button" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)"><i class="fa-solid fa-share-nodes"></i> Share</button>
+                                            <a href="{{ url_for('seller.edit_product', prod_id=prod.id) }}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem;"><i class="fa-solid fa-edit"></i> Edit</a>
+                                            <a href="{{ url_for('seller.delete_product', prod_id=prod.id) }}" class="btn btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.78rem; color: var(--danger);"><i class="fa-solid fa-trash"></i> Delete</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- ===== MOBILE CARD VIEW (shown only on mobile) ===== -->
+                <div class="products-card-view">
+                    {% for prod in products %}
+                    <div class="product-catalog-card">
+                        <!-- Card header: image + name + actions -->
+                        <div class="pcc-header">
+                            <img src="/static/uploads/products/{{ prod.main_image }}" class="pcc-image" alt="{{ prod.name }}">
+                            <div class="pcc-title-block">
+                                <strong class="pcc-name">{{ prod.name }}</strong>
+                                <span class="pcc-sku">SKU: {{ prod.sku }}</span>
+                            </div>
+                        </div>
+                        <!-- Card body: price + variant rows -->
+                        <div class="pcc-body">
+                            <div class="pcc-row">
+                                <span class="pcc-label">Base Price</span>
+                                <span class="pcc-value">INR {{ prod.base_price }}</span>
+                            </div>
+                            <div class="pcc-row">
+                                <span class="pcc-label">Offer Price</span>
+                                <span class="pcc-value pcc-price">INR {{ prod.offer_price|round(2) }}</span>
+                            </div>
+                            <div class="pcc-row">
+                                <span class="pcc-label">Variants</span>
+                                <span class="pcc-value">{{ prod.variants|length }}</span>
+                            </div>
+                        </div>
+                        <!-- Card footer: action buttons -->
+                        <div class="pcc-footer">
+                            <button type="button" class="btn btn-secondary pcc-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)"><i class="fa-solid fa-share-nodes"></i> Share</button>
+                            <a href="{{ url_for('seller.edit_product', prod_id=prod.id) }}" class="btn btn-secondary pcc-btn"><i class="fa-solid fa-edit"></i> Edit Product</a>
+                            <a href="{{ url_for('seller.delete_product', prod_id=prod.id) }}" class="btn pcc-btn pcc-delete-btn"><i class="fa-solid fa-trash"></i> Delete</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+            {% else %}
+                <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+                    <i class="fa-solid fa-box-open" style="font-size: 3rem; margin-bottom: 1rem; display: block; opacity: 0.4;"></i>
+                    <p style="font-style: italic; margin-bottom: 1.5rem;">No products listed yet. Start adding your first product!</p>
+                    <a href="{{ url_for('seller.add_product') }}" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Add First Product</a>
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- ORDERS TAB -->
+        <div class="tab-pane" id="tab-orders" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-bag-shopping text-primary"></i> My Orders</h2>
+
+            <!-- Orders Filter Form -->
+            <form method="GET" action="{{ url_for('seller.dashboard') }}#orders" style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; align-items: flex-end;">
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">Filter by Date</label>
+                    <input type="date" name="order_date" class="form-control" value="{{ request.args.get('order_date', '') }}">
+                </div>
+                <div style="flex: 1; min-width: 150px;">
+                    <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); display: block; margin-bottom: 0.35rem;">Filter by Status</label>
+                    <select name="order_status" class="form-control">
+                        <option value="All" {% if request.args.get('order_status', 'All') == 'All' %}selected{% endif %}>All Statuses</option>
+                        <option value="Ordered" {% if request.args.get('order_status') == 'Ordered' %}selected{% endif %}>Ordered</option>
+                        <option value="Confirmed" {% if request.args.get('order_status') == 'Confirmed' %}selected{% endif %}>Confirmed</option>
+                        <option value="Shipped" {% if request.args.get('order_status') == 'Shipped' %}selected{% endif %}>Shipped</option>
+                        <option value="Cancelled" {% if request.args.get('order_status') == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                        {% if enable_out_for_delivery %}
+                        <option value="Out For Delivery" {% if request.args.get('order_status') == 'Out For Delivery' %}selected{% endif %}>Out for Delivery</option>
+                        {% endif %}
+                        {% if enable_delivered %}
+                        <option value="Delivered" {% if request.args.get('order_status') == 'Delivered' %}selected{% endif %}>Delivered</option>
+                        {% endif %}
+                    </select>
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.25rem;"><i class="fa-solid fa-filter"></i> Apply Filters</button>
+                    <a href="{{ url_for('seller.dashboard') }}#orders" class="btn btn-secondary" style="padding: 0.6rem 1.25rem; display: flex; align-items: center;" onclick="window.location.href=window.location.pathname + '#orders'; setTimeout(() => window.location.reload(), 50); return false;"><i class="fa-solid fa-rotate-left"></i> Reset</a>
+                </div>
+            </form>
+
+            <!-- Desktop table -->
+            <div class="products-table-view">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                                <th>Courier</th>
+                                <th>Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in seller_orders %}
+                            <tr data-order-row-id="{{ order.id }}">
+                                <td style="font-weight: 700; font-family: monospace;">{{ order.order_number }}</td>
+                                <td>{{ order.user.username }}</td>
+                                <td style="font-size: 0.85rem;">
+                                    {% for item in order.items if item.product and item.product.seller_id == store.id %}
+                                        <span class="product-name-col" title="{{ item.product_name }}">{{ item.product_name }}</span> &times;{{ item.quantity }}<br>
+                                    {% endfor %}
+                                </td>
+                                <td style="font-weight: 700;">INR {{ order.grand_total|round(2) }}</td>
+                                <td>
+                                    <span class="discount-badge" style="background-color: {% if order.visible_status == 'Delivered' %}var(--success-light){% elif order.visible_status == 'Cancelled' %}var(--danger-light){% elif order.visible_status == 'Shipped' %}#fef9c3{% else %}var(--primary-light){% endif %}; color: {% if order.visible_status == 'Delivered' %}var(--success){% elif order.visible_status == 'Cancelled' %}var(--danger){% elif order.visible_status == 'Shipped' %}#713f12{% else %}var(--primary){% endif %};">
+                                        {{ order.visible_status }}
+                                    </span>
+                                </td>
+                                <td class="courier-info-cell" style="font-size: 0.78rem; color: var(--text-muted);">
+                                    {% if order.visible_status in ['Shipped', 'Out For Delivery', 'Delivered'] and order.courier_partner %}
+                                        <strong>{{ order.courier_partner }}</strong><br>
+                                        <span style="font-family: monospace;">{{ order.tracking_number }}</span>
+                                    {% else %}
+                                        &mdash;
+                                    {% endif %}
+                                </td>
+                                <td style="font-size: 0.82rem; color: var(--text-muted);">{{ order.created_at.strftime('%d %b %Y') }}</td>
+                                <td>
+                                    <div class="seller-actions-container-{{ order.id }}">
+                                    {% if order.status in ['Confirmed', 'Packed'] %}
+                                    <button type="button" class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.78rem; white-space: nowrap;"
+                                        onclick="openShipModal('ship-modal-{{ order.id }}')">
+                                        <i class="fa-solid fa-truck"></i> Mark Shipped
+                                    </button>
+                                    <!-- Ship Modal for this order -->
+                                    <div id="ship-modal-{{ order.id }}" class="ship-modal-el" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+                                        <div style="background:var(--bg-secondary); border-radius:var(--radius-lg); padding:2rem; width:min(420px, 90vw); box-shadow:var(--shadow-lg); position:relative;">
+                                            <button type="button" onclick="closeShipModal('ship-modal-{{ order.id }}')" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.25rem;cursor:pointer;color:var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+                                            <h4 style="margin-bottom:0.25rem;"><i class="fa-solid fa-truck" style="color:var(--primary);"></i> Mark as Shipped</h4>
+                                            <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1.25rem;">Order: <strong>{{ order.order_number }}</strong></p>
+                                            <form class="ship-order-ajax-form" data-order-id="{{ order.id }}" action="{{ url_for('seller.mark_order_shipped', order_id=order.id) }}" method="POST">
+                                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                <div class="form-group">
+                                                    <label>Courier / Delivery Partner Name <span style="color:var(--danger)">*</span></label>
+                                                    <input type="text" name="courier_name" class="form-control" placeholder="e.g. DTDC, Blue Dart, India Post" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label>Tracking Number <span style="color:var(--danger)">*</span></label>
+                                                    <input type="text" name="tracking_number" class="form-control" placeholder="e.g. 1234567890" required>
+                                                </div>
+                                                <div style="display:flex;gap:0.75rem;margin-top:1rem;">
+                                                    <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-truck"></i> Confirm Shipment</button>
+                                                    <button type="button" class="btn btn-secondary" onclick="closeShipModal('ship-modal-{{ order.id }}')" style="flex:1;">Cancel</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                    {% elif order.status == 'Shipped' %}
+                                        {% if enable_out_for_delivery %}
+                                            <button type="button" class="btn btn-secondary btn-action-out" data-order-id="{{ order.id }}" style="padding: 0.3rem 0.65rem; font-size: 0.78rem; white-space: nowrap; color: var(--primary); border-color: var(--primary);">
+                                                <i class="fa-solid fa-people-carry-box"></i> Out for Delivery
+                                            </button>
+                                        {% elif enable_delivered %}
+                                            <button type="button" class="btn btn-secondary btn-action-deliver" data-order-id="{{ order.id }}" style="padding: 0.3rem 0.65rem; font-size: 0.78rem; white-space: nowrap; color: var(--success); border-color: var(--success);">
+                                                <i class="fa-solid fa-circle-check"></i> Mark Delivered
+                                            </button>
+                                        {% else %}
+                                            &mdash;
+                                        {% endif %}
+                                    {% elif order.status == 'Out For Delivery' %}
+                                        {% if enable_delivered %}
+                                            <button type="button" class="btn btn-secondary btn-action-deliver" data-order-id="{{ order.id }}" style="padding: 0.3rem 0.65rem; font-size: 0.78rem; white-space: nowrap; color: var(--success); border-color: var(--success);">
+                                                <i class="fa-solid fa-circle-check"></i> Mark Delivered
+                                            </button>
+                                        {% else %}
+                                            &mdash;
+                                        {% endif %}
+                                    {% else %}
+                                        &mdash;
+                                    {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); font-style: italic;">No orders yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile cards -->
+            <div class="products-card-view">
+                {% for order in seller_orders %}
+                <div class="product-catalog-card" data-order-card-id="{{ order.id }}">
+                    <div class="pcc-header">
+                        <div class="pcc-title-block">
+                            <strong class="pcc-name">Order: {{ order.order_number }}</strong>
+                            <span class="pcc-sku">{{ order.user.username }} &middot; {{ order.created_at.strftime('%d %b %Y') }}</span>
+                        </div>
+                        <span class="discount-badge" style="background-color: {% if order.visible_status == 'Delivered' %}var(--success-light){% elif order.visible_status == 'Cancelled' %}var(--danger-light){% elif order.visible_status == 'Shipped' %}#fef9c3{% else %}var(--primary-light){% endif %}; color: {% if order.visible_status == 'Delivered' %}var(--success){% elif order.visible_status == 'Cancelled' %}var(--danger){% elif order.visible_status == 'Shipped' %}#713f12{% else %}var(--primary){% endif %}; margin-left: auto;">{{ order.visible_status }}</span>
+                    </div>
+                    <div class="pcc-body">
+                        {% for item in order.items if item.product and item.product.seller_id == store.id %}
+                        <div class="pcc-row">
+                            <span class="pcc-label">{{ item.product_name }}</span>
+                            <span class="pcc-value">&times;{{ item.quantity }} &middot; INR {{ item.total_price|round(2) }}</span>
+                        </div>
+                        {% endfor %}
+                        <div class="pcc-row">
+                            <span class="pcc-label">Grand Total</span>
+                            <span class="pcc-value pcc-price">INR {{ order.grand_total|round(2) }}</span>
+                        </div>
+                        <div class="pcc-row courier-info-row" style="display: {% if order.visible_status in ['Shipped', 'Out For Delivery', 'Delivered'] and order.courier_partner %}flex{% else %}none{% endif %};">
+                            <span class="pcc-label">Courier</span>
+                            <span class="pcc-value" style="text-align:right;">
+                                {% if order.courier_partner %}
+                                    {{ order.courier_partner }}<br><span style="font-family:monospace; font-size:0.8rem;">{{ order.tracking_number }}</span>
+                                {% endif %}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="pcc-footer seller-actions-container-m-{{ order.id }}">
+                    {% if order.status in ['Confirmed', 'Packed'] %}
+                        <button type="button" class="btn btn-secondary pcc-btn" onclick="openShipModal('ship-modal-m-{{ order.id }}')">
+                            <i class="fa-solid fa-truck"></i> Mark Shipped
+                        </button>
+                    <!-- Mobile ship modal -->
+                    <div id="ship-modal-m-{{ order.id }}" class="ship-modal-el" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center;">
+                        <div style="background:var(--bg-secondary); border-radius:var(--radius-lg); padding:1.5rem; width:min(380px, 92vw); box-shadow:var(--shadow-lg); position:relative;">
+                            <button type="button" onclick="closeShipModal('ship-modal-m-{{ order.id }}')" style="position:absolute;top:0.75rem;right:0.75rem;background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+                            <h4 style="margin-bottom:0.25rem;"><i class="fa-solid fa-truck" style="color:var(--primary);"></i> Mark as Shipped</h4>
+                            <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:1rem;">Order: <strong>{{ order.order_number }}</strong></p>
+                            <form class="ship-order-ajax-form" data-order-id="{{ order.id }}" action="{{ url_for('seller.mark_order_shipped', order_id=order.id) }}" method="POST">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <div class="form-group">
+                                    <label>Courier Partner <span style="color:var(--danger)">*</span></label>
+                                    <input type="text" name="courier_name" class="form-control" placeholder="e.g. Blue Dart" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Tracking Number <span style="color:var(--danger)">*</span></label>
+                                    <input type="text" name="tracking_number" class="form-control" placeholder="e.g. 1234567890" required>
+                                </div>
+                                <div style="display:flex;gap:0.75rem;margin-top:0.75rem;">
+                                    <button type="submit" class="btn btn-primary" style="flex:1;"><i class="fa-solid fa-truck"></i> Confirm</button>
+                                    <button type="button" class="btn btn-secondary" onclick="closeShipModal('ship-modal-m-{{ order.id }}')" style="flex:1;">Cancel</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    {% elif order.status == 'Shipped' %}
+                        {% if enable_out_for_delivery %}
+                            <button type="button" class="btn btn-secondary pcc-btn btn-action-out" data-order-id="{{ order.id }}" style="color: var(--primary); border-color: var(--primary);">
+                                <i class="fa-solid fa-people-carry-box"></i> Out for Delivery
+                            </button>
+                        {% elif enable_delivered %}
+                            <button type="button" class="btn btn-secondary pcc-btn btn-action-deliver" data-order-id="{{ order.id }}" style="color: var(--success); border-color: var(--success);">
+                                <i class="fa-solid fa-circle-check"></i> Mark Delivered
+                            </button>
+                        {% endif %}
+                    {% elif order.status == 'Out For Delivery' %}
+                        {% if enable_delivered %}
+                            <button type="button" class="btn btn-secondary pcc-btn btn-action-deliver" data-order-id="{{ order.id }}" style="color: var(--success); border-color: var(--success);">
+                                <i class="fa-solid fa-circle-check"></i> Mark Delivered
+                            </button>
+                        {% endif %}
+                    {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p style="color: var(--text-muted); font-style: italic; text-align: center; padding: 2rem;">No orders yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- RETURNS TAB -->
+        <div class="tab-pane" id="tab-returns" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-rotate-left text-primary"></i> Return Requests</h2>
+            <div class="products-table-view">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Return ID</th>
+                                <th>Product</th>
+                                <th>Order #</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ret in seller_returns %}
+                            <tr>
+                                <td style="font-family: monospace; font-weight: 600;">#{{ ret.id }}</td>
+                                <td><span class="product-name-col" title="{{ ret.order_item.product_name }}">{{ ret.order_item.product_name }}</span></td>
+                                <td style="font-family: monospace;">{{ ret.order_item.order.order_number }}</td>
+                                <td style="max-width: 200px; white-space: normal; font-size: 0.85rem;">{{ ret.reason }}</td>
+                                <td>
+                                    <span class="discount-badge" style="background-color: {% if ret.status == 'Approved' %}var(--success-light){% elif ret.status == 'Rejected' %}var(--danger-light){% else %}#fef9c3{% endif %}; color: {% if ret.status == 'Approved' %}var(--success){% elif ret.status == 'Rejected' %}var(--danger){% else %}#713f12{% endif %};">
+                                        {{ ret.status }}
+                                    </span>
+                                </td>
+                                <td style="font-size: 0.82rem; color: var(--text-muted);">{{ ret.created_at.strftime('%d %b %Y') }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-muted); font-style: italic;">No return requests.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="products-card-view">
+                {% for ret in seller_returns %}
+                <div class="product-catalog-card">
+                    <div class="pcc-header">
+                        <div class="pcc-title-block">
+                            <strong class="pcc-name">{{ ret.order_item.product_name }}</strong>
+                            <span class="pcc-sku">Order: {{ ret.order_item.order.order_number }}</span>
+                        </div>
+                        <span class="discount-badge" style="background-color: {% if ret.status == 'Approved' %}var(--success-light){% elif ret.status == 'Rejected' %}var(--danger-light){% else %}#fef9c3{% endif %}; color: {% if ret.status == 'Approved' %}var(--success){% elif ret.status == 'Rejected' %}var(--danger){% else %}#713f12{% endif %}; margin-left: auto;">{{ ret.status }}</span>
+                    </div>
+                    <div class="pcc-body">
+                        <div class="pcc-row">
+                            <span class="pcc-label">Reason</span>
+                            <span class="pcc-value" style="text-align: right; white-space: normal; max-width: 65%;">{{ ret.reason }}</span>
+                        </div>
+                        <div class="pcc-row">
+                            <span class="pcc-label">Filed</span>
+                            <span class="pcc-value">{{ ret.created_at.strftime('%d %b %Y') }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color: var(--text-muted); font-style: italic; text-align: center; padding: 2rem;">No return requests.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- REVIEWS TAB -->
+        <div class="tab-pane" id="tab-reviews" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-star text-primary"></i> Reviews & Ratings</h2>
+            {% if reviews %}
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for rev in reviews %}
+                <div class="product-catalog-card">
+                    <div class="pcc-header">
+                        <div class="pcc-title-block">
+                            <strong class="pcc-name">{{ rev.product.name }}</strong>
+                            <span class="pcc-sku">by {{ rev.user.username }} · {{ rev.created_at.strftime('%d %b %Y') }}</span>
+                        </div>
+                        <div style="display: flex; gap: 2px; margin-left: auto; flex-shrink: 0;">
+                            {% for i in range(1, 6) %}
+                            <i class="fa-solid fa-star" style="font-size: 0.8rem; color: {% if i <= rev.rating %}#f59e0b{% else %}var(--border-color){% endif %};"></i>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="pcc-body">
+                        {% if rev.title %}
+                        <div class="pcc-row">
+                            <span class="pcc-label">Title</span>
+                            <span class="pcc-value">{{ rev.title }}</span>
+                        </div>
+                        {% endif %}
+                        <div style="padding: 0.5rem 0; font-size: 0.88rem; color: var(--text-secondary); line-height: 1.5;">{{ rev.content }}</div>
+                        {% if rev.is_verified_purchase %}
+                        <div style="padding-top: 0.25rem;"><span class="discount-badge" style="background-color: var(--success-light); color: var(--success);"><i class="fa-solid fa-check"></i> Verified Purchase</span></div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fa-solid fa-star" style="font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i><p>No reviews yet for your products.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- COMMISSION TAB -->
+        <div class="tab-pane" id="tab-commission" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-percent text-primary"></i> Commission Status</h2>
+            <!-- Summary cards -->
+            <div class="stats-grid" style="margin-bottom: 2rem;">
+                <div class="stat-card">
+                    <span class="stat-card-title">Commission Rate</span>
+                    <span class="stat-card-value">{{ store.commission_percentage }}%</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Total Sales</span>
+                    <span class="stat-card-value">INR {{ store.total_sales|round(2) }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Commission Due</span>
+                    <span class="stat-card-value" style="color: var(--danger);">INR {{ commission_due|round(2) }}</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-card-title">Payment Status</span>
+                    <span class="stat-card-value" style="font-size: 1rem; color: {% if store.commission_payment_status == 'Paid' %}var(--success){% elif store.commission_payment_status == 'Suspended' %}var(--danger){% else %}var(--warning){% endif %};">{{ store.commission_payment_status }}</span>
+                </div>
+            </div>
+            <!-- Payment history -->
+            <h3 style="font-family: var(--font-heading); margin-bottom: 1rem;">Payment History</h3>
+            <div class="products-table-view">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead><tr><th>Date</th><th>Amount</th><th>UTR / Ref</th><th>Contact</th><th>Status</th><th>Rejection Reason</th></tr></thead>
+                        <tbody>
+                            {% for cp in commission_history %}
+                            <tr>
+                                <td style="font-size:0.82rem; color:var(--text-muted);">{{ cp.created_at.strftime('%d %b %Y %H:%M') }}</td>
+                                <td style="font-weight:700;">INR {{ cp.amount|round(2) }}</td>
+                                <td style="font-family: monospace; font-size:0.82rem;">{{ cp.transaction_id }}</td>
+                                <td>{{ cp.contact_number }}</td>
+                                <td><span class="discount-badge" style="background-color: {% if cp.status == 'Paid' %}var(--success-light){% elif cp.status == 'Rejected' %}var(--danger-light){% else %}var(--primary-light){% endif %}; color: {% if cp.status == 'Paid' %}var(--success){% elif cp.status == 'Rejected' %}var(--danger){% else %}var(--primary){% endif %};">{{ cp.status }}</span></td>
+                                <td style="font-size:0.82rem; color:var(--text-muted);">{{ cp.rejected_reason or '-' }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="6" style="text-align:center; color:var(--text-muted); font-style:italic;">No commission payment records yet.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="products-card-view">
+                {% for cp in commission_history %}
+                <div class="product-catalog-card">
+                    <div class="pcc-header">
+                        <div class="pcc-title-block">
+                            <strong class="pcc-name">INR {{ cp.amount|round(2) }}</strong>
+                            <span class="pcc-sku">{{ cp.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                        </div>
+                        <span class="discount-badge" style="background-color: {% if cp.status == 'Paid' %}var(--success-light){% elif cp.status == 'Rejected' %}var(--danger-light){% else %}var(--primary-light){% endif %}; color: {% if cp.status == 'Paid' %}var(--success){% elif cp.status == 'Rejected' %}var(--danger){% else %}var(--primary){% endif %}; margin-left: auto;">{{ cp.status }}</span>
+                    </div>
+                    <div class="pcc-body">
+                        <div class="pcc-row"><span class="pcc-label">UTR / Ref</span><span class="pcc-value" style="font-family:monospace;">{{ cp.transaction_id }}</span></div>
+                        <div class="pcc-row"><span class="pcc-label">Contact</span><span class="pcc-value">{{ cp.contact_number }}</span></div>
+                        {% if cp.rejected_reason %}
+                        <div class="pcc-row"><span class="pcc-label">Reason</span><span class="pcc-value" style="color:var(--danger);">{{ cp.rejected_reason }}</span></div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <p style="color:var(--text-muted); font-style:italic; text-align:center; padding:2rem;">No commission payment records yet.</p>
+                {% endfor %}
+            </div>
+            {% if store.commission_payment_status != 'Submitted' %}
+            <div style="margin-top: 1.5rem;">
+                <a href="{{ url_for('seller.pay_commission') }}" class="btn btn-primary" style="width: 100%; text-align: center;"><i class="fa-solid fa-qrcode"></i> Pay Commission Now</a>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- ANALYTICS TAB -->
+        <div class="tab-pane" id="tab-analytics" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-chart-line text-primary"></i> Store Analytics</h2>
+
+            <!-- Stats summary -->
+            <div class="analytics-stats-grid">
+                <div class="analytics-stat-card">
+                    <span class="analytics-stat-label">Lifetime Sales</span>
+                    <span class="analytics-stat-value">INR {{ sales_total|round(2) }}</span>
+                </div>
+                <div class="analytics-stat-card">
+                    <span class="analytics-stat-label">Orders Completed</span>
+                    <span class="analytics-stat-value">{{ orders_count }}</span>
+                </div>
+                <div class="analytics-stat-card">
+                    <span class="analytics-stat-label">Product Views</span>
+                    <span class="analytics-stat-value">{{ total_views }}</span>
+                </div>
+                <div class="analytics-stat-card">
+                    <span class="analytics-stat-label">Product Clicks</span>
+                    <span class="analytics-stat-value">{{ total_clicks }}</span>
+                </div>
+            </div>
+
+            <!-- Weekly Sales with download and week selector -->
+            <div class="analytics-charts-stack">
+                <div class="analytics-chart-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                        <h3 class="analytics-chart-title" style="margin: 0;"><i class="fa-solid fa-arrow-trend-up text-primary"></i> Weekly Sales (INR)</h3>
+                        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+                            <span style="font-size: 0.85rem; font-weight: 700;">Total: <span id="total-weekly-sales">INR {{ total_weekly_sales|round(2) }}</span></span>
+                            <select id="week-selector" class="form-control" style="width: auto; padding: 0.25rem 0.5rem; font-size: 0.8rem;" onchange="changeWeek(this.value)">
+                                <option value="0" {% if week_offset == 0 %}selected{% endif %}>This Week</option>
+                                <option value="1" {% if week_offset == 1 %}selected{% endif %}>Last Week</option>
+                                <option value="2" {% if week_offset == 2 %}selected{% endif %}>2 Weeks Ago</option>
+                                <option value="3" {% if week_offset == 3 %}selected{% endif %}>3 Weeks Ago</option>
+                            </select>
+                            <a href="{{ url_for('seller.download_weekly_sales_chart', format='png', week_offset=week_offset) }}" class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.78rem;">
+                                <i class="fa-solid fa-download"></i> PNG
+                            </a>
+                            <a href="{{ url_for('seller.download_weekly_sales_chart', format='pdf', week_offset=week_offset) }}" class="btn btn-secondary" style="padding: 0.3rem 0.75rem; font-size: 0.78rem;">
+                                <i class="fa-solid fa-file-pdf"></i> PDF
+                            </a>
+                        </div>
+                    </div>
+                    <div class="analytics-canvas-wrap">
+                        <canvas id="analytics-sales-chart"></canvas>
+                    </div>
+                </div>
+                <div class="analytics-chart-card">
+                    <h3 class="analytics-chart-title"><i class="fa-solid fa-eye text-primary"></i> Top Product Views</h3>
+                    <div class="analytics-canvas-wrap">
+                        <canvas id="analytics-views-chart"></canvas>
+                    </div>
+                </div>
+                <div class="analytics-chart-card">
+                    <h3 class="analytics-chart-title"><i class="fa-solid fa-computer-mouse text-primary"></i> Top Product Clicks</h3>
+                    <div class="analytics-canvas-wrap">
+                        <canvas id="analytics-clicks-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Per-product breakdown -->
+            <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; margin-top: 0.5rem;">Product Breakdown</h3>
+
+            <div class="products-table-view">
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Views</th>
+                                <th>Clicks</th>
+                                <th>Avg Rating</th>
+                                <th>Reviews</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prod in products %}
+                            <tr>
+                                <td style="font-weight:600;"><span class="product-name-col" title="{{ prod.name }}">{{ prod.name }}</span></td>
+                                <td>{{ prod.views }}</td>
+                                <td>{{ prod.clicks }}</td>
+                                <td>
+                                    {% if prod.average_rating > 0 %}
+                                    <span style="color: #f59e0b;">★</span> {{ prod.average_rating }}
+                                    {% else %}
+                                    <span style="color: var(--text-muted);">—</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ prod.reviews|length }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="products-card-view">
+                {% for prod in products %}
+                <div class="product-catalog-card">
+                    <div class="pcc-header">
+                        <img src="/static/uploads/products/{{ prod.main_image }}" class="pcc-image" alt="{{ prod.name }}">
+                        <div class="pcc-title-block">
+                            <strong class="pcc-name">{{ prod.name }}</strong>
+                            <span class="pcc-sku">SKU: {{ prod.sku }}</span>
+                        </div>
+                    </div>
+                    <div class="pcc-body">
+                        <div class="pcc-row">
+                            <span class="pcc-label">Views</span>
+                            <span class="pcc-value">{{ prod.views }}</span>
+                        </div>
+                        <div class="pcc-row">
+                            <span class="pcc-label">Clicks</span>
+                            <span class="pcc-value">{{ prod.clicks }}</span>
+                        </div>
+                        <div class="pcc-row">
+                            <span class="pcc-label">Avg Rating</span>
+                            <span class="pcc-value">
+                                {% if prod.average_rating > 0 %}
+                                <span style="color:#f59e0b;">★</span> {{ prod.average_rating }}
+                                {% else %}—{% endif %}
+                            </span>
+                        </div>
+                        <div class="pcc-row">
+                            <span class="pcc-label">Reviews</span>
+                            <span class="pcc-value">{{ prod.reviews|length }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <p style="color:var(--text-muted); font-style:italic; text-align:center; padding:2rem;">No products yet.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- SUPPORT TICKETS TAB -->
+        <div class="tab-pane" id="tab-tickets" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-headset text-primary"></i> Customer Support Tickets</h2>
+            {% if seller_tickets %}
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for ticket in seller_tickets %}
+                <div class="product-catalog-card">
+                    <div class="pcc-header">
+                        <div class="pcc-title-block">
+                            <strong class="pcc-name">{{ ticket.subject }}</strong>
+                            <span class="pcc-sku">{{ ticket.user.username }} · {{ ticket.created_at.strftime('%d %b %Y') }}</span>
+                        </div>
+                        <span class="discount-badge" style="margin-left: auto; background-color: {% if ticket.status == 'Closed' %}var(--success-light){% elif ticket.status == 'In Progress' %}var(--primary-light){% else %}#fef9c3{% endif %}; color: {% if ticket.status == 'Closed' %}var(--success){% elif ticket.status == 'In Progress' %}var(--primary){% else %}#713f12{% endif %};">{{ ticket.status }}</span>
+                    </div>
+                    <div class="pcc-body">
+                        <div class="pcc-row"><span class="pcc-label">Category</span><span class="pcc-value">{{ ticket.category }}</span></div>
+                        <div class="pcc-row"><span class="pcc-label">Priority</span><span class="pcc-value" style="color: {% if ticket.priority == 'High' %}var(--danger){% elif ticket.priority == 'Medium' %}var(--warning){% else %}var(--success){% endif %};">{{ ticket.priority }}</span></div>
+                        <div style="padding: 0.5rem 0; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5;">{{ ticket.description }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fa-solid fa-headset" style="font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i><p>No support tickets from customers related to your store.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- ANNOUNCEMENTS TAB -->
+        <div class="tab-pane" id="tab-notices" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;"><i class="fa-solid fa-bullhorn text-primary"></i> Admin Announcements</h2>
+            {% if notices %}
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for notice in notices %}
+                <div class="product-catalog-card">
+                    <div class="pcc-header" style="justify-content: space-between;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;"><i class="fa-solid fa-megaphone"></i> {% if notice.store_id %}Store Notice{% else %}All Sellers{% endif %}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">{{ notice.created_at.strftime('%d %b %Y %H:%M') }}</span>
+                    </div>
+                    <div class="pcc-body">
+                        <p style="margin: 0; font-size: 0.9rem; color: var(--text-secondary); line-height: 1.5;">{{ notice.message }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fa-solid fa-bullhorn" style="font-size: 2.5rem; opacity: 0.3; display: block; margin-bottom: 1rem;"></i><p>No announcements from the admin at this time.</p></div>
+            {% endif %}
+        </div>
+
+        <!-- QUESTIONS TAB -->
+        <div class="tab-pane" id="tab-qa" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Customer Questions</h2>
+            
+            {% set active_questions = [] %}
+            {% for prod in products %}
+                {% for q in prod.questions %}
+                    {% set _ = active_questions.append(q) %}
+                {% endfor %}
+            {% endfor %}
+            
+            {% if active_questions %}
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    {% for q in active_questions %}
+                    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem;">
+                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Product: {{ q.product.name }}</span>
+                        <div style="font-weight: 700; color: var(--text-primary); margin-top: 0.5rem;">Q: {{ q.question }}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Asked by {{ q.user.username }}</div>
+                        
+                        {% if q.answer %}
+                            <div style="background-color: var(--bg-tertiary); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.9rem; color: var(--text-secondary);">
+                                <strong>My Answer:</strong> {{ q.answer }}
+                            </div>
+                        {% else %}
+                            <form action="{{ url_for('seller.answer_question', q_id=q.id) }}" method="POST" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="text" name="answer" class="form-control" placeholder="Provide answer..." required>
+                                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem;">Answer</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">No buyer questions for your items.</p>
+            {% endif %}
+        </div>
+        
+        <!-- FEEDBACK TAB -->
+        <div class="tab-pane" id="tab-feedback" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">Modify Website Feedback</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">Sellers can give feedback to modify the website. Please enter your ideas, issues, or layout adjustment requests below.</p>
+            
+            <form action="{{ url_for('seller.submit_feedback') }}" method="POST" style="max-width: 600px;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="fb-msg">Your Feedback / Suggestions</label>
+                    <textarea id="fb-msg" name="message" class="form-control" rows="6" placeholder="Describe layout modifications or improvements you'd like to see..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit Feedback</button>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+<script>
+    // Shared chart data (rendered from server)
+    const weekLabels  = {{ week_sales_labels|tojson }};
+    const weekData    = {{ week_sales_data|tojson }};
+    const viewLabels  = {{ chart_labels|tojson }};
+    const viewData    = {{ chart_views|tojson }};
+    const clickData   = {{ chart_clicks|tojson }};
+
+    let overviewChartsDrawn  = false;
+    let analyticsChartsDrawn = false;
+
+    function drawOverviewCharts() {
+        if (overviewChartsDrawn) return;
+        CanvasCharts.drawBarChart('sales-chart', weekLabels, weekData, 'Weekly Store Sales (INR)');
+        CanvasCharts.drawLineChart('views-chart', viewLabels, viewData, 'Top Product Views', '#2563eb', 'rgba(37,99,235,0.15)');
+        CanvasCharts.drawBarChart('clicks-chart', viewLabels, clickData, 'Top Product Clicks', '#f59e0b');
+        overviewChartsDrawn = true;
+    }
+
+    function drawAnalyticsCharts() {
+        CanvasCharts.drawBarChart('analytics-sales-chart', weekLabels, weekData, 'Weekly Store Sales (INR)');
+        CanvasCharts.drawLineChart('analytics-views-chart', viewLabels, viewData, 'Top Product Views', '#2563eb', 'rgba(37,99,235,0.15)');
+        CanvasCharts.drawBarChart('analytics-clicks-chart', viewLabels, clickData, 'Top Product Clicks', '#f59e0b');
+        analyticsChartsDrawn = true;
+    }
+
+    function changeWeek(offset) {
+        window.location.href = window.location.pathname + '?week_offset=' + offset + '#analytics';
+    }
+
+    /* ---------- Drawer helpers ---------- */
+    function toggleSidebar() {
+        const sidebar  = document.getElementById('seller-sidebar');
+        const backdrop = document.getElementById('seller-sidebar-backdrop');
+        const isOpen   = sidebar.classList.contains('sidebar-open');
+        if (isOpen) { closeSidebar(); } else { openSidebar(); }
+    }
+
+    function openSidebar() {
+        document.getElementById('seller-sidebar').classList.add('sidebar-open');
+        document.getElementById('seller-sidebar-backdrop').classList.add('backdrop-visible');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSidebar() {
+        document.getElementById('seller-sidebar').classList.remove('sidebar-open');
+        document.getElementById('seller-sidebar-backdrop').classList.remove('backdrop-visible');
+        document.body.style.overflow = '';
+    }
+
+    /* ---------- Tab switching ---------- */
+    function switchTab(tabId, label) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.style.display = 'none');
+        document.querySelectorAll('.sidebar-nav-item').forEach(i => i.classList.remove('active'));
+
+        const pane = document.getElementById('tab-' + tabId);
+        if (pane) pane.style.display = 'block';
+
+        const btn = document.getElementById('tab-btn-' + tabId);
+        if (btn) btn.classList.add('active');
+
+        if (label) {
+            const titleEl = document.getElementById('seller-topbar-title');
+            if (titleEl) titleEl.textContent = label;
+        }
+
+        closeSidebar();
+
+        if (tabId === 'home')      requestAnimationFrame(() => { try { drawOverviewCharts(); } catch (e) { console.error('Chart rendering failed (non-fatal):', e); } });
+        if (tabId === 'analytics') requestAnimationFrame(() => { try { drawAnalyticsCharts(); } catch (e) { console.error('Chart rendering failed (non-fatal):', e); } });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const params = new URLSearchParams(window.location.search);
+        const hash = window.location.hash.replace('#', '');
+
+        if (params.has('order_date') || params.has('order_status')) {
+            switchTab('orders', 'Orders');
+        } else if (hash && document.getElementById('tab-' + hash)) {
+            switchTab(hash, document.getElementById('tab-btn-' + hash)?.querySelector('a')?.textContent?.trim() || '');
+        } else {
+            try {
+                drawOverviewCharts();
+            } catch (chartErr) {
+                console.error('Chart rendering failed (non-fatal):', chartErr);
+            }
+        }
+
+        // Ship order AJAX forms
+        document.querySelectorAll('.ship-order-ajax-form').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const orderId = this.getAttribute('data-order-id');
+                const formData = new FormData(this);
+                formData.append('ajax', 'true');
+
+                fetch(this.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI
+                        const container = document.querySelector(`.seller-actions-container-${orderId}`);
+                        if (container) container.innerHTML = '<span style="color:var(--success);font-weight:700;">Shipped ✓</span>';
+                        const mContainer = document.querySelector(`.seller-actions-container-m-${orderId}`);
+                        if (mContainer) mContainer.innerHTML = '<span style="color:var(--success);font-weight:700;">Shipped ✓</span>';
+                        closeShipModal('ship-modal-' + orderId);
+                        closeShipModal('ship-modal-m-' + orderId);
+                        showNotification('Order Shipped', 'Order has been marked as shipped successfully.', 'order');
+                    } else {
+                        alert(data.error || 'Failed to mark as shipped.');
+                    }
+                })
+                .catch(err => alert('Error: ' + err));
+            });
+        });
+
+        // Out for Delivery buttons
+        document.querySelectorAll('.btn-action-out').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-order-id');
+                fetch(`/seller/order/${orderId}/out_for_delivery`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'csrf_token={{ csrf_token() }}&ajax=true'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.error || 'Failed.');
+                    }
+                });
+            });
+        });
+
+        // Deliver buttons
+        document.querySelectorAll('.btn-action-deliver').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-order-id');
+                fetch(`/seller/order/${orderId}/deliver`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'csrf_token={{ csrf_token() }}&ajax=true'
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert(data.error || 'Failed.');
+                    }
+                });
+            });
+        });
+    });
+
+    function openShipModal(modalId) {
+        document.getElementById(modalId).style.display = 'flex';
+    }
+
+    function closeShipModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+</script>
+{% endblock %}

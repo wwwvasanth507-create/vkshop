@@ -1,0 +1,238 @@
+{% extends 'base.html' %}
+{% block title %}Order Details - VKshop{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customer.css') }}">
+{% endblock %}
+
+{% block content %}
+<div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h2 style="font-family: var(--font-heading); margin-bottom: 0.25rem;">Order #{{ order.order_number }}</h2>
+            <span style="font-size: 0.9rem; color: var(--text-secondary);">Placed on {{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+        </div>
+        <div style="text-align: right; display: flex; gap: 0.5rem; align-items: center; justify-content: flex-end;">
+            <a href="{{ url_for('customer.file_complaint', order_id=order.id) }}" class="btn btn-secondary" style="border-color: var(--danger); color: var(--danger);"><i class="fa-solid fa-triangle-exclamation"></i> File Complaint</a>
+            <a href="{{ url_for('customer.download_invoice', order_id=order.id) }}" class="btn btn-secondary"><i class="fa-solid fa-file-pdf"></i> Download Invoice</a>
+        </div>
+    </div>
+
+    {% if order.status == 'Cancelled' and order.payment and order.payment.description %}
+    <div class="cancellation-alert-card">
+        <div class="cancellation-icon-wrapper">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <h3 class="cancellation-title">Order Cancelled</h3>
+        <p class="cancellation-message">
+            Your order has been cancelled by our Payment Verification Team because the submitted payment details could not be successfully verified.
+        </p>
+        <p class="cancellation-message">
+            If you believe this decision was made in error or you have any concerns, please submit a complaint along with all relevant payment proofs, including your Transaction ID (UTR), payment receipt, screenshots, or any other supporting documents. Our team will carefully review your case and get back to you as soon as possible.
+        </p>
+        
+        <div class="cancellation-proofs-box">
+            <h5 class="cancellation-proofs-title">
+                <i class="fa-solid fa-receipt" style="color: var(--danger);"></i> Required Payment Proofs:
+            </h5>
+            <ul class="cancellation-proofs-list">
+                <li>Transaction ID (UTR)</li>
+                <li>Official payment receipt</li>
+                <li>Payment confirmation screenshots</li>
+                <li>Any other supporting documents</li>
+            </ul>
+        </div>
+        
+        <p class="cancellation-message" style="margin-bottom: 1rem;">
+            Thank you for your understanding and cooperation.
+        </p>
+        
+        <div class="cancellation-reassurance">
+            <i class="fa-solid fa-shield-halved text-success"></i>
+            <span>Our support team reviews genuine cases promptly.</span>
+        </div>
+        
+        <div class="cancellation-actions">
+            <a href="{{ url_for('customer.file_complaint', order_id=order.id) }}" class="cancellation-btn-primary">
+                <i class="fa-solid fa-paper-plane"></i> Submit Complaint
+            </a>
+            <a href="{{ url_for('main.index') }}" class="cancellation-btn-secondary">
+                <i class="fa-solid fa-house"></i> Back to Home
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if order.payment and order.payment.payment_method == 'UPI' %}
+        <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h4 style="margin: 0 0 0.25rem 0; color: var(--text-primary);"><i class="fa-solid fa-wallet text-warning"></i> UPI Scan & Pay Payment</h4>
+                <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
+                    Current status: <strong>{{ order.payment.status }}</strong>
+                    {% if order.payment.status == 'Pending' %}
+                        - Please scan the QR code and submit your reference details to process the order.
+                    {% elif order.payment.status == 'Awaiting Verification' %}
+                        - Proof submitted. Awaiting verification by the merchant's payment verifier.
+                    {% endif %}
+                </p>
+            </div>
+            <div>
+                {% if order.payment.status == 'Pending' %}
+                    <a href="{{ url_for('customer.order_pay', order_id=order.id) }}" class="btn btn-primary"><i class="fa-solid fa-qrcode"></i> Pay Now</a>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Timeline tracking tracker -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 2rem 0; position: relative;">
+        <!-- Track line background -->
+        <div style="position: absolute; top: 50%; left: 0; right: 0; height: 4px; background-color: var(--border-color); z-index: 1; transform: translateY(-50%);"></div>
+        
+
+        
+        {% for st in statuses %}
+        {% set idx = loop.index0 %}
+        <div style="z-index: 2; text-align: center; display: flex; flex-direction: column; align-items: center;">
+            <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; font-weight: 700;
+                        background-color: {% if idx <= current_idx %}var(--primary){% else %}var(--border-color){% endif %};
+                        color: white;">
+                {% if idx <= current_idx %}✓{% else %}{{ idx + 1 }}{% endif %}
+            </div>
+            <span style="font-size: 0.85rem; font-weight: 600; margin-top: 0.5rem; color: {% if idx <= current_idx %}var(--text-primary){% else %}var(--text-muted){% endif %};">
+                {{ st }}
+            </span>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 2rem; margin-top: 3rem;">
+        <!-- Items Table list -->
+        <div style="min-width: 0;">
+            <h4 style="margin-bottom: 1rem;">Items Shipped</h4>
+            <div class="table-wrapper">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Product Name</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>Total Price</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in order.items %}
+                        <tr>
+                            <td style="font-weight: 600;">
+                                <span class="product-name-col" title="{{ item.product_name }}">{{ item.product_name }}</span>
+                                {% if item.variant_details %}
+                                    <span style="font-size: 0.8rem; color: var(--text-secondary); display: block;">{{ item.variant_details }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ item.quantity }}</td>
+                            <td>INR {{ item.unit_price|round(2) }}</td>
+                            <td style="font-weight: 700;">INR {{ item.total_price|round(2) }}</td>
+                            <td>
+                                {% if order.status == 'Delivered' %}
+                                    {% if not item.return_request %}
+                                    <button class="btn btn-secondary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; color: var(--danger);" onclick="showReturnModal({{ item.id }})">Return Item</button>
+                                    {% else %}
+                                    <span class="discount-badge" style="background-color: var(--border-color); color: var(--text-secondary);">Return: {{ item.return_request.status }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="font-size: 0.8rem; color: var(--text-muted);">Available post-delivery</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Summary & Address Details -->
+        <div>
+            <!-- Shipping Info -->
+            <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem;">
+                <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-truck-fast"></i> Shipping To</h4>
+                {% if order.address %}
+                <p style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.4;">
+                    <strong>{{ order.address.fullName }}</strong><br>
+                    {{ order.address.addressLine1 }}<br>
+                    {{ order.address.city }}, {{ order.address.state }}<br>
+                    Phone: {{ order.address.phone }}
+                </p>
+                {% else %}
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Address details removed</p>
+                {% endif %}
+            </div>
+            
+            <!-- Courier Info -->
+            {% if order.courier_partner %}
+            <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-cube"></i> Courier Details</h4>
+                Courier: {{ order.courier_partner }}<br>
+                Tracking: {{ order.tracking_number or 'Not assigned' }}
+            </div>
+            {% endif %}
+            
+            <!-- Receipt breakdown -->
+            <div style="background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; font-size: 0.85rem; color: var(--text-secondary);">
+                <h4 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-receipt"></i> Payment Details</h4>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span>Subtotal:</span>
+                    <span>INR {{ order.total_amount|round(2) }}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <span>Discounts:</span>
+                    <span>- INR {{ order.discount_amount|round(2) }}</span>
+                </div>
+                {% if order.wallet_deduction > 0 %}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; color: var(--primary);">
+                    <span>Wallet deduction:</span>
+                    <span>- INR {{ order.wallet_deduction|round(2) }}</span>
+                </div>
+                {% endif %}
+                {% if order.reward_points_deduction > 0 %}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; color: var(--accent-hover);">
+                    <span>Reward points:</span>
+                    <span>- INR {{ order.reward_points_deduction|round(2) }}</span>
+                </div>
+                {% endif %}
+                <div style="display: flex; justify-content: space-between; font-weight: 700; color: var(--text-primary); margin-top: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                    <span>Grand Total:</span>
+                    <span>INR {{ order.grand_total|round(2) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- RETURN MODAL -->
+<div class="modal-overlay" id="return-modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3>Request Item Return</h3>
+            <button onclick="closeModal('return-modal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form id="return-form" action="" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="return-reason">Reason for Return</label>
+                <textarea id="return-reason" name="reason" class="form-control" rows="4" placeholder="e.g. Size mismatch, defective charger, color different from image..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-danger" style="width: 100%;">Submit Return Request</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function showReturnModal(itemId) {
+        document.getElementById('return-form').action = `/order/return/${itemId}`;
+        openModal('return-modal');
+    }
+</script>
+{% endblock %}

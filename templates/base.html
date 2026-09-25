@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}VKshop | Premium Marketplace{% endblock %}</title>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=1.1">
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    {% block styles %}{% endblock %}
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Preloader Styles -->
+    <style>
+        #vkshop-preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, #1e1b4b, #090d16);
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transition: opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .preloader-content {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            max-width: 90%;
+        }
+        .preloader-logo-wrapper {
+            position: relative;
+            width: 130px;
+            height: 130px;
+            border-radius: 28px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.04);
+            box-shadow: 0 0 35px rgba(59, 130, 246, 0.25), 0 0 70px rgba(245, 158, 11, 0.15);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            animation: pulse-ring 3s infinite cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .preloader-logo {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            border-radius: 18px;
+            animation: logo-spin-3d 5.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            perspective: 800px;
+        }
+        .preloader-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3rem;
+            font-weight: 800;
+            margin: 0;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #60a5fa, #f59e0b, #fbbf24);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            opacity: 0;
+            text-shadow: 0 0 25px rgba(96, 165, 250, 0.4);
+            animation: title-reveal-anim 2.5s 0.4s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+        .preloader-words-container {
+            height: 32px;
+            position: relative;
+            overflow: hidden;
+            width: 350px;
+            margin-top: 0.5rem;
+        }
+        .preloader-word {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-style: italic;
+            font-weight: 600;
+            letter-spacing: 0.75px;
+            color: #cbd5e1;
+            position: absolute;
+            width: 100%;
+            left: 0;
+            top: 25px;
+            opacity: 0;
+            filter: blur(4px);
+            transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-align: center;
+        }
+        .preloader-word.active {
+            top: 0;
+            opacity: 1;
+            filter: blur(0);
+            background: linear-gradient(90deg, #93c5fd, #fde047);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .preloader-loader-bar {
+            width: 220px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+        .preloader-progress {
+            width: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #f59e0b);
+            border-radius: 2px;
+            animation: progress-run-slow 6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        @keyframes pulse-ring {
+            0% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.35); }
+            50% { transform: scale(1.02); box-shadow: 0 0 0 20px rgba(59, 130, 246, 0); }
+            100% { transform: scale(0.96); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+        }
+        @keyframes logo-spin-3d {
+            0% { transform: rotateY(0deg) scale(0.7); opacity: 0; filter: brightness(1.5); }
+            15% { opacity: 1; }
+            40% { transform: rotateY(360deg) scale(1.1); filter: brightness(1); }
+            70% { transform: rotateY(720deg) scale(0.95); }
+            100% { transform: rotateY(1080deg) scale(1); opacity: 1; }
+        }
+        @keyframes title-reveal-anim {
+            0% { opacity: 0; transform: scale(0.85) translateY(25px); letter-spacing: -5px; filter: blur(6px); }
+            45% { opacity: 1; transform: scale(1.04) translateY(0); letter-spacing: 6px; filter: blur(0); }
+            100% { opacity: 1; transform: scale(1) translateY(0); letter-spacing: 2px; }
+        }
+        @keyframes progress-run-slow {
+            from { width: 0%; }
+            to { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Premium Preloader Splash Screen -->
+    <div id="vkshop-preloader">
+        <div class="preloader-content">
+            <div class="preloader-logo-wrapper">
+                <img src="{{ url_for('static', filename='logo.jpeg') }}" alt="VKshop Logo" class="preloader-logo">
+            </div>
+            <h1 class="preloader-title">VKshop</h1>
+            <div class="preloader-words-container">
+                <span class="preloader-word active">Premium E-Commerce Marketplace</span>
+                <span class="preloader-word">Verified Local Sellers</span>
+                <span class="preloader-word">Secure Payments & Escrow</span>
+                <span class="preloader-word">Fast Logistics & Delivery</span>
+            </div>
+            <div class="preloader-loader-bar">
+                <div class="preloader-progress"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Premium Glass Header -->
+    <header class="navbar">
+        <div class="container navbar-container">
+            <!-- Brand Logo -->
+            <a href="{{ url_for('main.index') }}" class="logo">
+                <img src="{{ url_for('static', filename='logo.jpeg') }}" alt="VKshop Logo" class="logo-img">
+                <span class="logo-text">VKshop</span>
+            </a>
+            
+            <!-- Category & Query Search Bar -->
+            {% if not current_user.is_authenticated or current_user.role not in ['seller', 'admin'] %}
+            <div class="search-wrapper">
+                <form id="search-form" action="{{ url_for('main.search') }}" method="GET">
+                    <div class="search-input-group">
+                        <select name="category" aria-label="Search category selection">
+                            <option value="">All Categories</option>
+                            {% for cat in all_categories %}
+                                <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="text" id="search-input" name="q" placeholder="Search products, brands, and categories..." autocomplete="off">
+                        
+                        <!-- Smart Search Icons -->
+                        <button type="button" id="voice-search-btn" title="Voice Search"><i class="fa-solid fa-microphone"></i></button>
+                        <button type="button" id="barcode-search-btn" title="Barcode Scan Search"><i class="fa-solid fa-barcode"></i></button>
+                        <button type="button" id="image-search-btn" title="Visual Image Search"><i class="fa-solid fa-camera"></i></button>
+                        
+                        <button type="submit" title="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+                    </div>
+                </form>
+                <!-- Autocomplete suggestions container -->
+                <div id="search-suggestions" style="display: none;"></div>
+            </div>
+            {% endif %}
+            
+            <!-- User Navigation Actions -->
+            <div class="nav-actions">
+                <button id="theme-toggle" class="nav-btn" title="Toggle Dark/Light Mode" aria-label="Toggle theme">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+                
+                <a href="{{ url_for('main.sellers_list') }}" class="nav-btn" title="Browse Sellers">
+                    <i class="fa-solid fa-store"></i> <span class="nav-text">Sellers</span>
+                </a>
+                
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('customer.view_cart') }}" class="nav-btn">
+                        <i class="fa-solid fa-cart-shopping"></i> <span class="nav-text">Cart</span>
+                        <span id="cart-badge" class="badge" style="display: none;">0</span>
+                    </a>
+                    
+                    {% if current_user.role == 'admin' %}
+                        <a href="{{ url_for('admin.dashboard') }}" class="nav-btn"><i class="fa-solid fa-shield-halved"></i> <span class="nav-text">Admin</span></a>
+                    {% elif current_user.role == 'seller' %}
+                        <a href="{{ url_for('seller.dashboard') }}" class="nav-btn"><i class="fa-solid fa-store"></i> <span class="nav-text">Seller Dashboard</span></a>
+                    {% else %}
+                        <a href="{{ url_for('customer.dashboard') }}" class="nav-btn"><i class="fa-solid fa-user"></i> <span class="nav-text">Account</span></a>
+                    {% endif %}
+                    
+                    <a href="{{ url_for('auth.logout') }}" class="nav-btn text-danger"><i class="fa-solid fa-arrow-right-from-bracket"></i> <span class="nav-text">Logout</span></a>
+                {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="nav-btn"><i class="fa-solid fa-arrow-right-to-bracket"></i> <span class="nav-text">Login</span></a>
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary nav-signup-btn">Sign Up</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="container" style="min-height: calc(100vh - 350px); padding-top: 1.5rem;">
+        <!-- Flash messages disabled -->
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Professional Footer -->
+    <footer class="footer">
+        <div class="container footer-grid">
+            <div class="footer-col">
+                <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; margin-bottom: 0.5rem;">
+                    <img src="{{ url_for('static', filename='logo.jpeg') }}" alt="VKshop Logo" style="height: 38px !important; width: 38px !important; object-fit: contain; border-radius: 4px;">
+                    <span style="font-family: var(--font-heading); font-size: 0.85rem; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; text-transform: uppercase;">VKshop</span>
+                </div>
+                <p style="color: var(--text-secondary); margin-top: 0.5rem; font-size: 0.9rem;">
+                    Your premium storefront for high-quality electronics, apparel, and digital goods. Delivered with care.
+                </p>
+            </div>
+            <div class="footer-col">
+                <h4>Get to Know Us</h4>
+                <ul>
+                    <li><a href="{{ url_for('main.about_us') }}">About Us</a></li>
+                    <li><a href="{{ url_for('main.careers') }}">Careers</a></li>
+                    <li><a href="{{ url_for('main.press_releases') }}">Press Releases</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Help & Customer Care</h4>
+                <ul>
+                    <li><a href="{% if current_user.is_authenticated %}{{ url_for('customer.dashboard') }}#tickets{% else %}{{ url_for('auth.login') }}{% endif %}">Support Center</a></li>
+                    <li><a href="{{ url_for('main.shipping_rates') }}">Shipping Rates</a></li>
+                    <li><a href="{{ url_for('main.returns_replacements') }}">Returns & Replacements</a></li>
+                </ul>
+            </div>
+            <div class="footer-col">
+                <h4>Payment & Logistics Partners</h4>
+                <p style="color: var(--text-muted); font-size: 0.85rem;">
+                    Accepting Credit Cards, Debit Cards, UPI, Wallets, COD, and BNPL. Shipped by VKshop Logistics.
+                </p>
+            </div>
+        </div>
+        <div class="container footer-bottom">
+            <p>&copy; 2026 VKshop Marketplace. All rights reserved.</p>
+            <div>
+                <a href="{{ url_for('main.privacy_policy') }}" style="margin-right: 1rem;">Privacy Policy</a>
+                <a href="{{ url_for('main.terms_conditions') }}">Terms & Conditions</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Global Application Scripts -->
+    <script src="{{ url_for('static', filename='js/app.js') }}?v=1.3"></script>
+    <script src="{{ url_for('static', filename='js/search.js') }}"></script>
+    
+    <!-- Preloader Animation Logic -->
+    <script>
+        (function() {
+            // Check if splash has already been shown in this browser session
+            if (sessionStorage.getItem('vkshop_splash_shown')) {
+                const loader = document.getElementById('vkshop-preloader');
+                if (loader) {
+                    loader.style.display = 'none';
+                }
+                return;
+            }
+            
+            // Wait for DOM to cycle words and run timer
+            document.addEventListener("DOMContentLoaded", function() {
+                const words = document.querySelectorAll('.preloader-word');
+                let wordIdx = 0;
+                
+                const wordCycleInterval = setInterval(() => {
+                    if (wordIdx < words.length - 1) {
+                        words[wordIdx].classList.remove('active');
+                        wordIdx++;
+                        words[wordIdx].classList.add('active');
+                    } else {
+                        clearInterval(wordCycleInterval);
+                    }
+                }, 1400); // slower cycling for 6s duration
+                
+                setTimeout(() => {
+                    const loader = document.getElementById('vkshop-preloader');
+                    if (loader) {
+                        loader.style.opacity = '0';
+                        setTimeout(() => {
+                            loader.style.display = 'none';
+                            sessionStorage.setItem('vkshop_splash_shown', 'true');
+                        }, 700);
+                    }
+                }, 6000); // 6 seconds display duration
+            });
+        })();
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

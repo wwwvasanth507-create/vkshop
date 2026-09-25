@@ -1,0 +1,133 @@
+{% extends 'base.html' %}
+{% block title %}Add Product - Seller Portal{% endblock %}
+
+{% block content %}
+<div style="max-width: 700px; margin: 2rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-sm);">
+    <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Add New Product</h2>
+    
+    <form action="" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="prod-name">Product Title <span style="color:var(--danger)">*</span></label>
+            <input type="text" id="prod-name" name="name" class="form-control" placeholder="e.g. iPhone 15 Pro Max" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="prod-desc">Product Description <span style="color:var(--danger)">*</span></label>
+            <textarea id="prod-desc" name="description" class="form-control" rows="5" placeholder="Explain the key details, warranty, packaging contents..." required></textarea>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="prod-cat">Category <span style="color:var(--danger)">*</span></label>
+                <select id="prod-cat" name="category_id" class="form-control" required>
+                    <option value="">-- Select Category --</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}">{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="prod-brand">Brand <span style="color:var(--text-muted); font-size:0.8rem;">(Optional)</span></label>
+                <select id="prod-brand" name="brand_id" class="form-control">
+                    <option value="">-- No Brand / General --</option>
+                    {% for br in brands %}
+                        <option value="{{ br.id }}">{{ br.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="prod-price">Base Price (INR) <span style="color:var(--danger)">*</span></label>
+                <input type="number" id="prod-price" name="base_price" class="form-control" step="0.01" placeholder="49999" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="prod-discount">Discount Percent (%)</label>
+                <input type="number" id="prod-discount" name="discount_percent" class="form-control" value="0" min="0" max="99" step="0.1">
+            </div>
+        </div>
+
+        <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: 600; color: var(--text-secondary);">Current Price (Auto-Calculated):</span>
+            <span style="font-weight: 800; font-size: 1.25rem; color: var(--primary);" id="calculated-current-price">INR 0.00</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="prod-stock">Base Stock Quantity</label>
+                <input type="number" id="prod-stock" name="stock" class="form-control" value="0" min="0" placeholder="0 (for products without variants)">
+                <small style="color: var(--text-muted); font-size: 0.78rem;">Used only when no variants are created.</small>
+            </div>
+            <div class="form-group">
+                <label for="prod-delivery">Delivery Days</label>
+                <input type="number" id="prod-delivery" name="delivery_days" class="form-control" value="3" min="1" required>
+            </div>
+        </div>
+
+        <!-- Available Regions -->
+        <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem;">
+                <i class="fa-solid fa-map-location-dot" style="color: var(--primary); margin-right: 0.4rem;"></i>
+                Available Delivery Regions
+            </h4>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">
+                Fill at least one field to restrict delivery to specific regions. Leave all blank to make this product available everywhere.
+                Enter multiple values separated by commas or new lines.
+            </p>
+            <div class="form-group">
+                <label for="prod-countries">Countries</label>
+                <textarea id="prod-countries" name="available_countries" class="form-control" rows="2" placeholder="e.g. India, United States"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="prod-states">States / Provinces</label>
+                <textarea id="prod-states" name="available_states" class="form-control" rows="2" placeholder="e.g. Tamil Nadu, Karnataka, Maharashtra"></textarea>
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+                <label for="prod-districts">Districts / Cities / Pincodes</label>
+                <textarea id="prod-districts" name="available_districts" class="form-control" rows="2" placeholder="e.g. Chennai, Coimbatore, Madurai, 600001, 600001-600100"></textarea>
+                <small style="color: var(--text-secondary); font-size: 0.8rem;">You can also enter exact pincodes or pincode ranges (e.g. 600001-600100) for precise delivery matching.</small>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="prod-img">Primary Product Image <span style="color:var(--danger)">*</span></label>
+            <input type="file" id="prod-img" name="primary_image" accept="image/*" class="form-control" style="padding: 0.35rem;" required>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <input type="checkbox" id="prod-digital" name="is_digital">
+            <label for="prod-digital" style="margin-bottom: 0; cursor: pointer;">This is a digital product (No physical shipping required)</label>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">Save &amp; Add Specifications</button>
+            <a href="{{ url_for('seller.dashboard') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const priceInput = document.getElementById('prod-price');
+    const discountInput = document.getElementById('prod-discount');
+    const currentPriceDisplay = document.getElementById('calculated-current-price');
+
+    function calculateCurrentPrice() {
+        const price = parseFloat(priceInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
+        const current = price * (1.0 - (discount / 100.0));
+        currentPriceDisplay.textContent = `INR ${current.toFixed(2)}`;
+    }
+
+    priceInput.addEventListener('input', calculateCurrentPrice);
+    discountInput.addEventListener('input', calculateCurrentPrice);
+    
+    // Run initial calculation
+    calculateCurrentPrice();
+</script>
+{% endblock %}

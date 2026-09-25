@@ -1,0 +1,578 @@
+/* main.css - Public Storefront Specific Stylesheet */
+
+/* ==========================================
+   HERO CAROUSEL & SECTIONS
+   ========================================== */
+
+.hero-slider {
+    position: relative;
+    height: 285px;          /* mobile: compact height */
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    margin: 1.5rem 0;
+    box-shadow: var(--shadow-md);
+}
+
+.slider-track {
+    display: flex;
+    height: 100%;
+    transition: transform 0.5s ease-in-out;
+}
+
+/* ── Mobile default: image on top, text below ── */
+.slide {
+    min-width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 1.25rem 1.5rem;
+    box-sizing: border-box;
+    gap: 0.5rem;
+}
+
+.slide-content {
+    width: 100%;
+    z-index: 10;
+}
+
+.slide-content h2 {
+    font-size: 1.5rem;
+    line-height: 1.2;
+    margin-bottom: 0.4rem;
+    color: var(--text-primary);
+    font-weight: 800;
+}
+
+.slide-content p {
+    font-size: 0.82rem;
+    margin-bottom: 1rem !important;
+}
+
+/* Image sits above content on mobile */
+.slide-img {
+    position: relative;
+    max-height: 100px;
+    max-width: 60%;
+    object-fit: contain;
+    order: -1;
+    flex-shrink: 0;
+}
+
+/* ── Desktop: side-by-side, image right, text left ── */
+@media (min-width: 769px) {
+    .hero-slider {
+        height: 340px;
+    }
+
+    .slide {
+        flex-direction: row;            /* horizontal layout */
+        align-items: center;
+        justify-content: space-between;
+        text-align: left;
+        padding: 2.5rem 3rem;
+        gap: 2rem;
+    }
+
+    .slide-content {
+        flex: 1;
+        max-width: 55%;
+    }
+
+    .slide-content h2 {
+        font-size: 2.25rem;
+        margin-bottom: 0.75rem;
+    }
+
+    .slide-content p {
+        font-size: 0.95rem;
+        margin-bottom: 1.75rem !important;
+    }
+
+    /* Image sits on the right on desktop */
+    .slide-img {
+        order: 1;                       /* right side */
+        max-height: 75%;
+        max-width: 38%;
+        flex-shrink: 0;
+    }
+}
+
+/* ==========================================
+   PRODUCT CARDS GRID
+   ========================================== */
+
+.section-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+}
+
+.products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.product-card {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    padding: 1rem;
+    transition: transform var(--transition-normal), box-shadow var(--transition-normal), border-color var(--transition-normal);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.product-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.product-card-img-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 100%; /* Square aspect ratio */
+    margin-bottom: 1rem;
+    background-color: #fff;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.product-card-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.5s ease;
+}
+
+.product-card:hover .product-card-img {
+    transform: scale(1.05);
+}
+
+.product-wishlist-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background-color: rgba(255, 255, 255, 0.85);
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.product-wishlist-btn:hover {
+    background-color: white;
+    color: var(--danger);
+}
+
+.product-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.product-brand {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+
+.product-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    height: 2.8rem;
+}
+
+.product-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* ==========================================
+   PRODUCT DETAIL PAGE
+   ========================================== */
+
+.product-detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3rem;
+    margin: 2rem 0;
+    align-items: start;
+}
+
+/* ---- Mobile: stack gallery above info ---- */
+@media (max-width: 768px) {
+    .product-detail-layout {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        margin: 1rem 0;
+    }
+
+    .product-gallery {
+        /* Constrain so gallery doesn't take entire screen */
+        max-width: 100%;
+    }
+
+    .gallery-main {
+        height: 260px !important;
+        padding: 1rem !important;
+    }
+
+    /* Thumbnail strip: allow overflow scroll horizontally */
+    .gallery-thumbs {
+        overflow-x: auto;
+        flex-wrap: nowrap !important;
+        padding-bottom: 4px;
+    }
+
+    /* Product heading / price on mobile */
+    .product-detail-layout > div h1 {
+        font-size: 1.4rem !important;
+    }
+
+    .product-detail-layout .offer-price {
+        font-size: 1.5rem !important;
+    }
+
+    /* Price block: allow wrapping */
+    .product-detail-layout [style*="display: flex; align-items: baseline"] {
+        flex-wrap: wrap !important;
+        gap: 0.4rem !important;
+    }
+
+    /* Variant pill row: allow wrapping */
+    .variant-options {
+        flex-wrap: wrap !important;
+    }
+
+    /* Cart action row: stack qty on its own row, full-width buy btn */
+    .cart-action-form {
+        flex-wrap: wrap !important;
+    }
+
+    .cart-action-form .cart-qty-box {
+        width: 100% !important;
+    }
+
+    .cart-action-form .cart-buy-btn {
+        flex: 1 !important;
+        min-width: 0;
+    }
+
+    /* Specs table max width on mobile */
+    .product-detail-layout + div .table-wrapper {
+        max-width: 100% !important;
+    }
+
+    /* Q&A ask form: stack on mobile */
+    .product-detail-layout + div form[style*="display: flex; gap"] {
+        flex-direction: column !important;
+    }
+}
+
+.product-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.gallery-main {
+    width: 100%;
+    height: 400px;
+    background-color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 2rem;
+}
+
+.gallery-main img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.gallery-thumbs {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.thumb-btn {
+    width: 70px;
+    height: 70px;
+    background-color: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-fast);
+}
+
+.thumb-btn:hover, .thumb-btn.active {
+    border-color: var(--primary);
+}
+
+.thumb-btn img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.product-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.product-info-brand {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+}
+
+.product-info-name {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 0.75rem;
+}
+
+.product-rating-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.stars {
+    color: #fbbf24;
+}
+
+.product-info-price-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 0;
+}
+
+.product-info-price {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--primary);
+}
+
+.product-info-original-price {
+    font-size: 1.1rem;
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+.product-info-desc {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.variant-selector {
+    margin-bottom: 2rem;
+}
+
+.variant-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.variant-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.variant-pill {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.variant-pill:hover {
+    border-color: var(--border-hover);
+}
+
+.variant-pill.active {
+    border-color: var(--primary);
+    background-color: var(--primary-light);
+    color: var(--primary);
+}
+
+/* ==========================================
+   PRODUCT LINK SHARING & TOAST STYLES
+   ========================================== */
+
+.product-share-btn {
+    position: absolute;
+    top: 0.5rem;
+    left: 0.5rem;
+    background-color: rgba(255,255,255,0.85);
+    border: none;
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    z-index: 10;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.product-share-btn:hover {
+    background-color: white;
+    color: var(--primary);
+}
+
+/* ==========================================
+   OUT OF STOCK OVERLAY
+   ========================================== */
+
+.out-of-stock-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
+    border-radius: var(--radius-lg);
+    pointer-events: none;
+}
+
+.out-of-stock-overlay span {
+    background-color: var(--danger);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.85rem;
+    padding: 0.4rem 1rem;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    white-space: nowrap;
+}
+
+.out-of-stock-overlay span i {
+    margin-right: 0.35rem;
+}
+
+.product-card {
+    position: relative;
+}
+
+/* Glassmorphic Toast Notification */
+.toast-notification {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 500;
+    animation: slideInUp 0.3s ease-out;
+    transition: opacity 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Category Horizontal Scroll Bar Styling */
+.category-scroll-container {
+    display: flex;
+    gap: 1.25rem;
+    overflow-x: auto;
+    scroll-behavior: smooth;
+    padding: 0.5rem 0.25rem;
+    margin-bottom: 3.5rem;
+    -webkit-overflow-scrolling: touch;
+}
+.category-scroll-container::-webkit-scrollbar {
+    height: 6px;
+}
+.category-scroll-container::-webkit-scrollbar-track {
+    background: transparent;
+}
+.category-scroll-container::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 10px;
+}
+.category-scroll-container::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+

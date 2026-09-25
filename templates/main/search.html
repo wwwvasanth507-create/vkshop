@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% block title %}Search Results for "{{ query }}" - VKshop{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <!-- Sidebar Filters -->
+    <aside class="dashboard-sidebar" style="padding: 1.25rem;">
+        <h4 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Filters</h4>
+        
+        <form action="{{ url_for('main.search') }}" method="GET" id="filter-form">
+            <input type="hidden" name="q" value="{{ query }}">
+            
+            <!-- Category Filter -->
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Category</label>
+                <select name="category" class="form-control" onchange="document.getElementById('filter-form').submit()" aria-label="Category filter">
+                    <option value="">All Categories</option>
+                    {% for cat in categories %}
+                        <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Brand Filter -->
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Brand</label>
+                <select name="brand" class="form-control" onchange="document.getElementById('filter-form').submit()" aria-label="Brand filter">
+                    <option value="">All Brands</option>
+                    {% for br in brands %}
+                        <option value="{{ br.id }}" {% if selected_brand == br.id %}selected{% endif %}>{{ br.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <!-- Sort Filter -->
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-secondary);">Sort By</label>
+                <select name="sort" class="form-control" onchange="document.getElementById('filter-form').submit()" aria-label="Sort by options">
+                    <option value="relevance" {% if sort_by == 'relevance' %}selected{% endif %}>Relevance</option>
+                    <option value="price_asc" {% if sort_by == 'price_asc' %}selected{% endif %}>Price: Low to High</option>
+                    <option value="price_desc" {% if sort_by == 'price_desc' %}selected{% endif %}>Price: High to Low</option>
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest Arrivals</option>
+                </select>
+            </div>
+        </form>
+        
+        <!-- Trending Searches -->
+        {% if trending_searches %}
+        <div style="margin-top: 2rem;">
+            <label style="font-weight: 600; display: block; font-size: 0.85rem; margin-bottom: 0.5rem; color: var(--text-muted);">Trending Searches</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.35rem;">
+                {% for ts in trending_searches %}
+                    <a href="/search?q={{ ts }}" style="font-size: 0.8rem; background-color: var(--bg-tertiary); padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border-color); color: var(--text-secondary);">{{ ts }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </aside>
+    
+    <!-- Main Search Area -->
+    <section>
+        <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">
+            {% if query %}
+                Search results for "{{ query }}"
+            {% else %}
+                All Products Catalog
+            {% endif %}
+            <span style="font-size: 1.1rem; color: var(--text-muted); font-weight: normal;">({{ products|length }} items)</span>
+        </h2>
+        
+        {% if products %}
+            <div class="products-grid">
+                {% for prod in products %}
+                    <div class="product-card">
+                        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+                            <i class="fa-solid fa-share-nodes"></i>
+                        </button>
+                        <button class="product-wishlist-btn" onclick="toggleWishlist({{ prod.id }})" title="Add to Wishlist" aria-label="Toggle wishlist for {{ prod.name }}">
+                            <i class="fa-regular fa-heart"></i>
+                        </button>
+                        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+                            <div class="product-card-img-wrapper">
+                                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                            </div>
+                            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+                            <div class="product-name">{{ prod.name }}</div>
+                            
+                            <div class="rating-stars">
+                                {% set avg = prod.average_rating %}
+                                {% for i in range(1, 6) %}
+                                    {% if avg >= i %}
+                                        <i class="fa-solid fa-star"></i>
+                                    {% else %}
+                                        <i class="fa-regular fa-star"></i>
+                                    {% endif %}
+                                {% endfor %}
+                                <span>({{ prod.reviews|length }})</span>
+                            </div>
+                            
+                            <div class="product-price-row">
+                                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                                {% if prod.discount_percent > 0 %}
+                                    <span class="base-price">INR {{ prod.base_price|round(2) }}</span>
+                                {% endif %}
+                            </div>
+                            {% if prod.is_out_of_stock %}
+                                <div class="out-of-stock-overlay">
+                                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                                </div>
+                            {% endif %}
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div style="text-align: center; padding: 4rem 2rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+                <i class="fa-regular fa-folder-open" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1.5rem;"></i>
+                <h3 style="margin-bottom: 0.5rem;">No products match your search</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">Double-check your spelling or clear filters to try again.</p>
+                <a href="/search" class="btn btn-primary">Reset Filters</a>
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

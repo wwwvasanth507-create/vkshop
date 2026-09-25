@@ -1,0 +1,87 @@
+{% extends 'base.html' %}
+{% block title %}Edit Address - VKshop{% block content %}
+<div style="max-width: 600px; margin: 2rem auto; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem; color: var(--text-primary);">Edit Delivery Address</h2>
+    
+    <form action="" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        
+        <div class="form-group">
+            <label for="addr-title">Address Label</label>
+            <input type="text" id="addr-title" name="title" class="form-control" value="{{ addr.title }}" placeholder="Home, Office, etc." required>
+        </div>
+        <div class="form-group">
+            <label for="addr-name">Full Name</label>
+            <input type="text" id="addr-name" name="fullName" class="form-control" value="{{ addr.fullName }}" placeholder="John Doe" required>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="door_no">Door No</label>
+                <input type="text" id="door_no" name="door_no" class="form-control" value="{{ addr.door_no or '' }}" placeholder="e.g. 4B">
+            </div>
+            <div class="form-group">
+                <label for="street">Street</label>
+                <input type="text" id="street" name="street" class="form-control" value="{{ addr.street or '' }}" placeholder="e.g. MG Road">
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="village_city">Village/City name</label>
+                <input type="text" id="village_city" name="village_city" class="form-control" value="{{ addr.village_city or addr.city or '' }}" placeholder="e.g. Bangalore">
+            </div>
+            <div class="form-group">
+                <label for="post_name">Post name</label>
+                <input type="text" id="post_name" name="post_name" class="form-control" value="{{ addr.post_name or '' }}" placeholder="e.g. MG Road PO">
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="taluk_name">Taluk name</label>
+                <input type="text" id="taluk_name" name="taluk_name" class="form-control" value="{{ addr.taluk_name or '' }}" placeholder="e.g. North Taluk">
+            </div>
+            <div class="form-group">
+                <label for="district">District</label>
+                <input type="text" id="district" name="district" class="form-control" value="{{ addr.district or '' }}" placeholder="e.g. Bangalore Urban">
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="state">State</label>
+                <input type="text" id="state" name="state" class="form-control" value="{{ addr.state }}" placeholder="e.g. Karnataka" required>
+            </div>
+            <div class="form-group">
+                <label for="country">Country</label>
+                <input type="text" id="country" name="country" class="form-control" value="{{ addr.country or 'India' }}" required>
+            </div>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="form-group">
+                <label for="pin_code">Pin code</label>
+                <input type="text" id="pin_code" name="pin_code" class="form-control" value="{{ addr.postalCode }}" placeholder="e.g. 560001" required>
+            </div>
+            <div class="form-group">
+                <label for="landmark">Nearby Famous Landmark</label>
+                <input type="text" id="landmark" name="landmark" class="form-control" value="{{ addr.landmark or addr.addressLine2 or '' }}" placeholder="e.g. Near Metro Station">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label for="contact_number">Contact Number</label>
+            <input type="text" id="contact_number" name="contact_number" class="form-control" value="{{ addr.phone }}" placeholder="e.g. 9876543210" required>
+        </div>
+        
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <input type="checkbox" id="addr-default" name="is_default" {% if addr.is_default %}checked{% endif %}>
+            <label for="addr-default" style="margin-bottom: 0; cursor: pointer;">Set as default shipping address</label>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Update Address</button>
+    </form>
+</div>
+{% endblock %}
+{% endblock %}

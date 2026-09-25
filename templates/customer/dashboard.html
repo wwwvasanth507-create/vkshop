@@ -1,0 +1,449 @@
+{% extends 'base.html' %}
+{% block title %}My Account Dashboard - VKshop{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/customer.css') }}">
+<style>
+    @media (max-width: 992px) {
+        .mobile-profile-menu-container {
+            display: block !important;
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .dashboard-sidebar {
+            display: none !important;
+        }
+        
+        .dashboard-layout {
+            grid-template-columns: 1fr !important;
+            gap: 1rem;
+        }
+    }
+
+    @media (min-width: 993px) {
+        .mobile-profile-menu-container {
+            display: none !important;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="dashboard-sidebar">
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <div style="width: 70px; height: 70px; background-color: var(--primary); color: white; font-size: 2.25rem; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
+                {{ current_user.username[0]|upper }}
+            </div>
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.15rem;">{{ current_user.username }}</h3>
+            <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">{{ current_user.role }}</span>
+        </div>
+        
+        <ul class="sidebar-nav">
+            <li class="sidebar-nav-item active" id="tab-btn-orders"><a href="#orders" onclick="switchTab('orders')"><i class="fa-solid fa-box"></i> My Orders</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-addresses"><a href="#addresses" onclick="switchTab('addresses')"><i class="fa-solid fa-location-dot"></i> Address Book</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-points"><a href="#points" onclick="switchTab('points')"><i class="fa-solid fa-award"></i> Reward Points</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-wishlist"><a href="#wishlist" onclick="switchTab('wishlist')"><i class="fa-solid fa-heart"></i> Wishlist</a></li>
+            <li class="sidebar-nav-item" id="tab-btn-tickets"><a href="#tickets" onclick="switchTab('tickets')"><i class="fa-solid fa-headset"></i> Support Tickets</a></li>
+        </ul>
+    </aside>
+    
+    <section class="dashboard-content">
+        <!-- Mobile Profile & Expandable Menu -->
+        <div class="mobile-profile-menu-container">
+            <div class="mobile-profile-trigger" id="mobile-profile-trigger" style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="width: 45px; height: 45px; background-color: var(--primary); color: white; font-size: 1.5rem; font-weight: 800; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        {{ current_user.username[0]|upper }}
+                    </div>
+                    <div>
+                        <h3 style="font-size: 1rem; margin: 0; color: var(--text-primary);">{{ current_user.username }}</h3>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">{{ current_user.role }}</span>
+                    </div>
+                </div>
+                <!-- Menu Icon (represented by a menu button), visible when profile is clicked -->
+                <div id="mobile-menu-icon-btn" style="display: none; width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-tertiary); align-items: center; justify-content: center; color: var(--text-primary); cursor: pointer; border: 1px solid var(--border-color);">
+                    <i class="fa-solid fa-bars" style="font-size: 1.1rem;"></i>
+                </div>
+            </div>
+
+            <!-- The actual menu list, toggled by the menu icon -->
+            <div id="mobile-menu-list" style="display: none; margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                <ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                    <li style="padding: 0.75rem 1rem; border-radius: var(--radius-md); background-color: var(--bg-tertiary); cursor: pointer; color: var(--text-primary); font-weight: 500;" onclick="selectMobileTab('orders')">
+                        <i class="fa-solid fa-box" style="margin-right: 0.75rem; color: var(--primary); width: 18px; text-align: center;"></i> My Orders
+                    </li>
+                    <li style="padding: 0.75rem 1rem; border-radius: var(--radius-md); background-color: var(--bg-tertiary); cursor: pointer; color: var(--text-primary); font-weight: 500;" onclick="selectMobileTab('addresses')">
+                        <i class="fa-solid fa-location-dot" style="margin-right: 0.75rem; color: var(--primary); width: 18px; text-align: center;"></i> Address Book
+                    </li>
+                    <li style="padding: 0.75rem 1rem; border-radius: var(--radius-md); background-color: var(--bg-tertiary); cursor: pointer; color: var(--text-primary); font-weight: 500;" onclick="selectMobileTab('points')">
+                        <i class="fa-solid fa-award" style="margin-right: 0.75rem; color: var(--primary); width: 18px; text-align: center;"></i> Reward Points
+                    </li>
+                    <li style="padding: 0.75rem 1rem; border-radius: var(--radius-md); background-color: var(--bg-tertiary); cursor: pointer; color: var(--text-primary); font-weight: 500;" onclick="selectMobileTab('wishlist')">
+                        <i class="fa-solid fa-heart" style="margin-right: 0.75rem; color: var(--primary); width: 18px; text-align: center;"></i> Wishlist
+                    </li>
+                    <li style="padding: 0.75rem 1rem; border-radius: var(--radius-md); background-color: var(--bg-tertiary); cursor: pointer; color: var(--text-primary); font-weight: 500;" onclick="selectMobileTab('tickets')">
+                        <i class="fa-solid fa-headset" style="margin-right: 0.75rem; color: var(--primary); width: 18px; text-align: center;"></i> Support Tickets
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <!-- MY ORDERS TAB -->
+        <div class="tab-pane active" id="tab-orders">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">My Orders</h2>
+            {% if orders %}
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Order Number</th>
+                                <th>Date</th>
+                                <th>Grand Total</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for order in orders %}
+                            <tr>
+                                <td style="font-weight: 600;">{{ order.order_number }}</td>
+                                <td>{{ order.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                <td>INR {{ order.grand_total|round(2) }}</td>
+                                <td>
+                                    <span class="discount-badge" style="background-color: var(--primary-light); color: var(--primary);">
+                                        {{ order.visible_status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('customer.order_detail', order_id=order.id) }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">Details</a>
+                                    <a href="{{ url_for('customer.download_invoice', order_id=order.id) }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;" title="Download PDF invoice"><i class="fa-solid fa-file-pdf"></i> Invoice</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">You haven't placed any orders yet.</p>
+            {% endif %}
+        </div>
+        
+        <!-- ADDRESS BOOK TAB -->
+        <div class="tab-pane" id="tab-addresses" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-family: var(--font-heading); margin-bottom: 0;">Address Book</h2>
+                <button class="btn btn-primary" onclick="openModal('address-modal')"><i class="fa-solid fa-plus"></i> Add Address</button>
+            </div>
+            
+            {% if addresses %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                    {% for addr in addresses %}
+                    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; position: relative;">
+                        {% if addr.is_default %}
+                            <span class="discount-badge" style="position: absolute; top: 1rem; right: 1rem; background-color: var(--primary-light); color: var(--primary);">Default</span>
+                        {% endif %}
+                        <h4 style="margin-bottom: 0.5rem;">{{ addr.title }}</h4>
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.4;">
+                            <strong>{{ addr.fullName }}</strong><br>
+                            {{ addr.addressLine1 }}<br>
+                            {% if addr.addressLine2 %}{{ addr.addressLine2 }}<br>{% endif %}
+                            {{ addr.city }}, {{ addr.state }} - {{ addr.postalCode }}<br>
+                            Phone: {{ addr.phone }}
+                        </p>
+                        <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem; display: flex; justify-content: space-between;">
+                            <a href="{{ url_for('customer.edit_address', addr_id=addr.id) }}" class="text-primary" style="font-size: 0.85rem; font-weight: 600;"><i class="fa-solid fa-pen-to-square"></i> Edit Address</a>
+                            <a href="{{ url_for('customer.delete_address', addr_id=addr.id) }}" class="text-danger" style="font-size: 0.85rem; font-weight: 600;"><i class="fa-solid fa-trash"></i> Delete</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">No addresses stored. Please add a shipping address.</p>
+            {% endif %}
+        </div>
+        
+
+        
+        <!-- REWARD POINTS TAB -->
+        <div class="tab-pane" id="tab-points" style="display: none;">
+            <div class="dashboard-two-col-layout">
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 2rem; border-radius: var(--radius-lg); text-align: center;">
+                    <div style="font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem;">Accumulated Points</div>
+                    <div style="font-size: 3rem; font-weight: 800; color: var(--accent); margin-bottom: 1rem;">{{ current_user.reward_points_balance }}</div>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem;">1 Reward Point = 1.00 INR. Points can be redeemed at checkout.</p>
+                </div>
+                
+                <div>
+                    <h4 style="margin-bottom: 1rem;">Points Ledger</h4>
+                    {% if points_txs %}
+                        <div class="table-wrapper">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Reason</th>
+                                        <th>Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for pt in points_txs %}
+                                    <tr>
+                                        <td>{{ pt.created_at.strftime('%Y-%m-%d') }}</td>
+                                        <td style="font-size: 0.9rem;">{{ pt.description }}</td>
+                                        <td style="font-weight: 700; color: {% if pt.type == 'credit' %}var(--success){% else %}var(--danger){% endif %};">
+                                            {% if pt.type == 'credit' %}+{% else %}-{% endif %} {{ pt.points }} pts
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p style="color: var(--text-muted); font-style: italic;">You haven't accumulated any points yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- WISHLIST TAB -->
+        <div class="tab-pane" id="tab-wishlist" style="display: none;">
+            <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem;">My Saved Items</h2>
+            {% if wishlist %}
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1.5rem;">
+                    {% for item in wishlist %}
+                    <div class="product-card">
+                        <a href="{{ url_for('main.product_detail', slug=item.product.slug) }}">
+                            <div class="product-card-img-wrapper">
+                                <img src="/static/uploads/products/{{ item.product.main_image }}" class="product-card-img" alt="{{ item.product.name }}">
+                            </div>
+                            <div class="product-name" style="font-size: 0.85rem;">{{ item.product.name }}</div>
+                            <div class="offer-price" style="font-size: 1rem; margin-top: 0.5rem;">INR {{ item.product.offer_price|round(2) }}</div>
+                        </a>
+                        <div style="margin-top: 1rem; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                            <a href="#" class="text-primary" style="font-size: 0.8rem; font-weight: 600;" data-share-title="{{ item.product.name }}" data-share-url="{{ url_for('main.product_detail', slug=item.product.slug) }}" onclick="shareProduct(event)"><i class="fa-solid fa-share-nodes"></i> Share</a>
+                            <a href="{{ url_for('customer.remove_from_wishlist', wish_id=item.id) }}" class="text-danger" style="font-size: 0.8rem; font-weight: 600;"><i class="fa-solid fa-trash"></i> Remove</a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">Your wishlist is currently empty.</p>
+            {% endif %}
+        </div>
+        
+        <!-- SUPPORT TICKETS TAB -->
+        <div class="tab-pane" id="tab-tickets" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="font-family: var(--font-heading); margin-bottom: 0;">Support Center</h2>
+                <button class="btn btn-primary" onclick="openModal('ticket-modal')"><i class="fa-solid fa-headset"></i> Open New Ticket</button>
+            </div>
+            
+            {% if tickets %}
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Subject</th>
+                                <th>Category</th>
+                                <th>Priority</th>
+                                <th>Status</th>
+                                <th>Last Updated</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tk in tickets %}
+                            <tr>
+                                <td style="font-weight: 600;">{{ tk.subject }}</td>
+                                <td>{{ tk.category }}</td>
+                                <td>{{ tk.priority }}</td>
+                                <td>
+                                    <span class="discount-badge" style="background-color: {% if tk.status == 'Closed' %}var(--border-color){% else %}var(--primary-light){% endif %}; color: {% if tk.status == 'Closed' %}var(--text-secondary){% else %}var(--primary){% endif %};">
+                                        {{ tk.status }}
+                                    </span>
+                                </td>
+                                <td>{{ tk.updated_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <a href="{{ url_for('customer.view_ticket', ticket_id=tk.id) }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">View Conversation</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p style="color: var(--text-muted); font-style: italic;">No open support cases.</p>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+<!-- ADD ADDRESS MODAL -->
+<div class="modal-overlay" id="address-modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3>Add New Address</h3>
+            <button onclick="closeModal('address-modal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('customer.add_address') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="addr-title">Address Label</label>
+                <input type="text" id="addr-title" name="title" class="form-control" placeholder="Home, Office, etc." required>
+            </div>
+            <div class="form-group">
+                <label for="addr-name">Full Name</label>
+                <input type="text" id="addr-name" name="fullName" class="form-control" placeholder="John Doe" required>
+            </div>
+            <div class="form-group">
+                <label for="addr-line1">Address Line 1</label>
+                <input type="text" id="addr-line1" name="addressLine1" class="form-control" placeholder="Flat, House No., Building" required>
+            </div>
+            <div class="form-group">
+                <label for="addr-line2">Address Line 2</label>
+                <input type="text" id="addr-line2" name="addressLine2" class="form-control" placeholder="Area, Colony, Street">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="addr-city">City</label>
+                    <input type="text" id="addr-city" name="city" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="addr-state">State</label>
+                    <input type="text" id="addr-state" name="state" class="form-control" required>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="addr-zip">Postal Code</label>
+                    <input type="text" id="addr-zip" name="postalCode" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="addr-phone">Phone Number</label>
+                    <input type="text" id="addr-phone" name="phone" class="form-control" required>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                <input type="checkbox" id="addr-default" name="is_default">
+                <label for="addr-default" style="margin-bottom: 0; cursor: pointer;">Set as default shipping address</label>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Save Address</button>
+        </form>
+    </div>
+</div>
+
+<!-- OPEN SUPPORT TICKET MODAL -->
+<div class="modal-overlay" id="ticket-modal">
+    <div class="modal-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h3>Open Support Ticket</h3>
+            <button onclick="closeModal('ticket-modal')" style="background: none; border: none; font-size: 1.25rem; cursor: pointer; color: var(--text-muted);"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <form action="{{ url_for('customer.support_tickets') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="t-subj">Subject</label>
+                <input type="text" id="t-subj" name="subject" class="form-control" placeholder="Issue description summary" required>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="t-cat">Category</label>
+                    <select id="t-cat" name="category" class="form-control">
+                        <option value="Payment">Payment / Checkout</option>
+                        <option value="Shipping">Shipping / Delivery</option>
+                        <option value="Refund">Returns & Refund</option>
+                        <option value="Account">Account Security</option>
+                        <option value="Feedback">Suggestions & Feedback</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="t-pri">Priority</label>
+                    <select id="t-pri" name="priority" class="form-control">
+                        <option value="Low">Low</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="t-desc">Describe your issue in detail</label>
+                <textarea id="t-desc" name="description" class="form-control" rows="5" placeholder="Include order numbers, transaction references, or screenshots description." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%;">Create Case</button>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function switchTab(tabId) {
+        // Hide all panes
+        document.querySelectorAll('.tab-pane').forEach(pane => pane.style.display = 'none');
+        // Unactivate tabs
+        document.querySelectorAll('.sidebar-nav-item').forEach(item => item.classList.remove('active'));
+        
+        // Show selected
+        const pane = document.getElementById(`tab-${tabId}`);
+        if (pane) pane.style.display = 'block';
+        
+        const btn = document.getElementById(`tab-btn-${tabId}`);
+        if (btn) btn.classList.add('active');
+    }
+
+    // Auto switch based on hash tag
+    if (window.location.hash) {
+        const hash = window.location.hash.substring(1);
+        switchTab(hash);
+    }
+
+    // Mobile Profile & Menu Interaction handlers
+    document.addEventListener('DOMContentLoaded', function() {
+        const profileTrigger = document.getElementById('mobile-profile-trigger');
+        const menuIconBtn = document.getElementById('mobile-menu-icon-btn');
+        const menuList = document.getElementById('mobile-menu-list');
+
+        if (profileTrigger && menuIconBtn && menuList) {
+            // Clicking profile shows/hides the menu icon
+            profileTrigger.addEventListener('click', function(e) {
+                // Ignore if clicked on the menu icon itself
+                if (e.target.closest('#mobile-menu-icon-btn')) {
+                    return;
+                }
+                
+                if (menuIconBtn.style.display === 'none' || menuIconBtn.style.display === '') {
+                    menuIconBtn.style.display = 'flex';
+                } else {
+                    menuIconBtn.style.display = 'none';
+                    menuList.style.display = 'none';
+                }
+            });
+
+            // Clicking menu icon shows/hides the menu list
+            menuIconBtn.addEventListener('click', function(e) {
+                e.stopPropagation(); // Prevent profile trigger click event
+                if (menuList.style.display === 'none' || menuList.style.display === '') {
+                    menuList.style.display = 'block';
+                } else {
+                    menuList.style.display = 'none';
+                }
+            });
+        }
+    });
+
+    // Handle mobile tab selection: switches tab and hides list
+    function selectMobileTab(tabId) {
+        switchTab(tabId);
+        const menuList = document.getElementById('mobile-menu-list');
+        if (menuList) {
+            menuList.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

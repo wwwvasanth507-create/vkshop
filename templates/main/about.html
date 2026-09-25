@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+{% block title %}About Us - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 2rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 3rem; box-shadow: var(--shadow-lg);">
+    <h1 style="font-family: var(--font-heading); font-size: 2.25rem; font-weight: 800; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">About VKshop</h1>
+    <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">Connecting local store owners and premium brands to shoppers globally.</p>
+    
+    <div style="color: var(--text-secondary); line-height: 1.6; display: flex; flex-direction: column; gap: 1.5rem;">
+        <p>
+            Welcome to <strong>VKshop</strong>, a modern, premium e-commerce marketplace designed to empower local vendors and official brand stores while providing consumers with an unmatched, highly curated shopping experience.
+        </p>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">Our Mission</h3>
+        <p>
+            Our mission is simple: to democratize premium e-commerce. We bridge the gap between shoppers looking for high-quality electronics, apparel, and digital goods, and verified merchants offering authentic products. By providing tools for secure payments, digitizing logistics, and tracking merchant verification reports, VKshop guarantees trust at every step of the transaction.
+        </p>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">Why Choose VKshop?</h3>
+        <ul style="padding-left: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+            <li><strong>Verified Storefronts:</strong> Every merchant on VKshop is strictly vetted with Aadhaar identity verification, digital signature sign-offs, and onboarding validations to keep the platform free from fraud.</li>
+            <li><strong>VKshop Logistics:</strong> Fast, tracked, and reliable deliveries powered by our integrated courier partners.</li>
+            <li><strong>Secure Payouts:</strong> Secure escrow payment verifications (via card, wallets, and UPI payments) to protect customer transactions.</li>
+            <li><strong>Seamless User Experience:</strong> Premium UI design supporting smooth navigation, visual category browsing, autocomplete search, and a light/dark system layout.</li>
+        </ul>
+
+        <h3 style="color: var(--text-primary); font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; margin-top: 1rem;">Our Story</h3>
+        <p>
+            Founded in 2026, VKshop started with a vision to build a marketplace where quality rules. We wanted to move away from low-quality generic listings and build a premium digital space where brands and curated local shops could thrive under a secure, unified framework. Today, we host multiple official sellers across categories including premium electronics and fashion, delivering thousands of products with care.
+        </p>
+    </div>
+</div>
+{% endblock %}

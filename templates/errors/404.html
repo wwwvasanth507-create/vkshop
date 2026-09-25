@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block title %}Page Not Found - VKshop{% endblock %}
+
+{% block content %}
+<div style="text-align: center; padding: 5rem 2rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); max-width: 600px; margin: 3rem auto; box-shadow: var(--shadow-sm);">
+    <i class="fa-solid fa-circle-question" style="font-size: 5rem; color: var(--accent); margin-bottom: 1.5rem;"></i>
+    <h1 style="font-family: var(--font-heading); margin-bottom: 0.5rem; font-size: 2.25rem;">404 Page Not Found</h1>
+    <p style="color: var(--text-secondary); margin-bottom: 2.5rem; font-size: 1.1rem; line-height: 1.5;">
+        Sorry, the page you are looking for does not exist or has been moved. Let's get you back on track!
+    </p>
+    <div style="display: flex; gap: 1rem; justify-content: center;">
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">Go to Homepage</a>
+        <a href="/search" class="btn btn-secondary">Search Catalog</a>
+    </div>
+</div>
+{% endblock %}

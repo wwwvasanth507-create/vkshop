@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block title %}System Settings - Admin Center{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 2rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <h2 style="font-family: var(--font-heading); margin-bottom: 0;">Platform Settings</h2>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Dashboard</a>
+    </div>
+    
+    <form action="" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Default tax key settings -->
+        <h4 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Taxation Settings</h4>
+        <div class="form-group">
+            <label for="tax_gst">GST Rate Percentage (%)</label>
+            <input type="number" id="tax_gst" name="TAX_GST_PERCENTAGE" class="form-control" value="{{ settings.get('TAX_GST_PERCENTAGE', '18') }}" min="0" max="100">
+        </div>
+        
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Shipping Logistics</h4>
+        <div class="form-group">
+            <label for="ship_fee">Default Standard Shipping Fee (INR)</label>
+            <input type="number" id="ship_fee" name="SHIPPING_FEE" class="form-control" value="{{ settings.get('SHIPPING_FEE', '50') }}" min="0">
+        </div>
+        <div class="form-group">
+            <label for="ship_free">Free Shipping Threshold Limit (INR)</label>
+            <input type="number" id="ship_free" name="FREE_SHIPPING_THRESHOLD" class="form-control" value="{{ settings.get('FREE_SHIPPING_THRESHOLD', '500') }}" min="0">
+        </div>
+        
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Platform Payments (Commissions)</h4>
+        <div class="form-group">
+            <label for="admin_upi">Admin UPI ID (for receiving seller commissions)</label>
+            <input type="text" id="admin_upi" name="ADMIN_UPI_ID" class="form-control" value="{{ settings.get('ADMIN_UPI_ID', 'admin@upi') }}" placeholder="admin@upi">
+        </div>
+        <div class="form-group">
+            <label for="admin_qr">Admin QR Code Image (for receiving seller commissions)</label>
+            <input type="file" id="admin_qr" name="ADMIN_QR_CODE" accept="image/*" class="form-control" style="padding: 0.35rem;">
+            {% if settings.get('ADMIN_QR_CODE') %}
+                <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+                    Current QR code image: <a href="/static/uploads/admin/{{ settings.get('ADMIN_QR_CODE') }}" target="_blank">View image</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Enable Payment Methods</h4>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="enable_upi" name="ENABLE_UPI" value="true" {% if settings.get('ENABLE_UPI', 'true') == 'true' %}checked{% endif %}>
+                <label for="enable_upi" style="margin-bottom: 0; font-weight: 600; cursor: pointer;">Enable UPI Payment</label>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="enable_cod" name="ENABLE_COD" value="true" {% if settings.get('ENABLE_COD', 'true') == 'true' %}checked{% endif %}>
+                <label for="enable_cod" style="margin-bottom: 0; font-weight: 600; cursor: pointer;">Enable Cash on Delivery (COD)</label>
+            </div>
+        </div>
+
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Delivery Status Controls</h4>
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="enable_out_for_delivery" name="ENABLE_OUT_FOR_DELIVERY" value="true" {% if settings.get('ENABLE_OUT_FOR_DELIVERY', 'true') == 'true' %}checked{% endif %}>
+                <label for="enable_out_for_delivery" style="margin-bottom: 0; font-weight: 600; cursor: pointer;">Enable Out for Delivery Status</label>
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <input type="checkbox" id="enable_delivered" name="ENABLE_DELIVERED" value="true" {% if settings.get('ENABLE_DELIVERED', 'true') == 'true' %}checked{% endif %}>
+                <label for="enable_delivered" style="margin-bottom: 0; font-weight: 600; cursor: pointer;">Enable Delivered Status</label>
+            </div>
+        </div>
+
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Return System</h4>
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <input type="checkbox" id="enable_returns" name="ENABLE_RETURNS" value="true" {% if settings.get('ENABLE_RETURNS', 'true') == 'true' %}checked{% endif %}>
+            <label for="enable_returns" style="margin-bottom: 0; font-weight: 600; cursor: pointer;">Enable Return System</label>
+            <span style="font-size: 0.8rem; color: var(--text-muted); margin-left: 0.5rem;">(If disabled, customers cannot create new return requests)</span>
+        </div>
+
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Customer Care Support</h4>
+        <div class="form-group">
+            <label for="support_email">Official Platform Support Email Address</label>
+            <input type="email" id="support_email" name="SUPPORT_OFFICIAL_EMAIL" class="form-control" value="{{ settings.get('SUPPORT_OFFICIAL_EMAIL', 'support@vkshop.com') }}">
+        </div>
+
+        <h4 style="margin-top: 2rem; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.25rem; color: var(--text-secondary);">Marketplace / Company Addresses</h4>
+        <div class="form-group">
+            <label for="m-address-invoice">Marketplace Address for Invoices</label>
+            <textarea id="m-address-invoice" name="MARKETPLACE_ADDRESS_INVOICE" class="form-control" rows="3" placeholder="Enter physical company address for invoices...">{{ settings.get('MARKETPLACE_ADDRESS_INVOICE', '123 Innovation Way, Tech Park\nBangalore, KA 560001') }}</textarea>
+        </div>
+        <div class="form-group">
+            <label for="m-address-support">Marketplace Address for Support Emails</label>
+            <textarea id="m-address-support" name="MARKETPLACE_ADDRESS_SUPPORT" class="form-control" rows="3" placeholder="Enter support address...">{{ settings.get('MARKETPLACE_ADDRESS_SUPPORT', 'VKshop Support Center, 123 E-Commerce Way, Bangalore - 560001') }}</textarea>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 2.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+            <button type="submit" class="btn btn-primary" style="flex: 1;">Save Settings Configurations</button>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+
+    <div style="margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+        <h4 style="margin-bottom: 1rem; color: var(--text-secondary);">Global Commission Percentage</h4>
+        <div class="form-group">
+            <label for="global_commission">Commission Percentage (Applied to ALL sellers)</label>
+            <form action="{{ url_for('admin.update_global_commission') }}" method="POST" style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="number" id="global_commission" name="global_commission_percentage" class="form-control" value="{{ settings.get('GLOBAL_COMMISSION_PERCENTAGE', '10') }}" min="0" max="100" step="0.1" style="max-width: 100px;">
+                <button type="submit" class="btn btn-primary" style="padding: 0.4rem 0.8rem; font-size: 0.85rem;"><i class="fa-solid fa-check"></i> Apply to All Sellers</button>
+            </form>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">This will immediately update commission for every seller in the system.</span>
+        </div>
+    </div>
+</div>
+{% endblock %}

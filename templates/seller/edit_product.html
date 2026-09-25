@@ -1,0 +1,272 @@
+{% extends 'base.html' %}
+{% block title %}Edit Product - Seller Portal{% endblock %}
+
+{% block content %}
+<div style="display: grid; grid-template-columns: 1fr 480px; gap: 2.5rem; margin: 2rem 0; align-items: start;">
+    <!-- Left Column: Base Product and Specifications -->
+    <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-sm);">
+        <h2 style="font-family: var(--font-heading); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Edit Product Details</h2>
+        
+        <form action="" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label for="p-name">Product Name</label>
+                <input type="text" id="p-name" name="name" class="form-control" value="{{ product.name }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label for="p-desc">Description</label>
+                <textarea id="p-desc" name="description" class="form-control" rows="5" required>{{ product.description }}</textarea>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="p-cat">Category</label>
+                    <select id="p-cat" name="category_id" class="form-control" required>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if product.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="p-brand">Brand <span style="color:var(--text-muted); font-size:0.8rem;">(Optional)</span></label>
+                    <select id="p-brand" name="brand_id" class="form-control">
+                        <option value="">-- No Brand / General --</option>
+                        {% for br in brands %}
+                            <option value="{{ br.id }}" {% if product.brand_id == br.id %}selected{% endif %}>{{ br.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="p-price">Base Price (INR)</label>
+                    <input type="number" id="p-price" name="base_price" class="form-control" step="0.01" value="{{ product.base_price }}" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="p-disc">Discount Percent (%)</label>
+                    <input type="number" id="p-disc" name="discount_percent" class="form-control" value="{{ product.discount_percent|round(1) }}" min="0" max="99" step="0.1">
+                </div>
+            </div>
+
+            <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; color: var(--text-secondary);">Current Price (Auto-Calculated):</span>
+                <span style="font-weight: 800; font-size: 1.25rem; color: var(--primary);" id="calculated-current-price">INR 0.00</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="p-stock">Base Stock Quantity</label>
+                    <input type="number" id="p-stock" name="stock" class="form-control" value="{{ product.stock or 0 }}" min="0">
+                    <small style="color: var(--text-muted); font-size: 0.78rem;">Used only when no variants are created.</small>
+                </div>
+                <div class="form-group">
+                    <label for="p-delivery">Delivery Days</label>
+                    <input type="number" id="p-delivery" name="delivery_days" class="form-control" value="{{ product.delivery_days or 3 }}" min="1" required>
+                </div>
+            </div>
+
+            <!-- Available Regions -->
+            <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+                <h4 style="margin: 0 0 0.5rem 0; font-size: 0.95rem;">
+                    <i class="fa-solid fa-map-location-dot" style="color: var(--primary); margin-right: 0.4rem;"></i>
+                    Available Delivery Regions
+                </h4>
+                <p style="color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1rem;">
+                    Fill at least one field to restrict delivery to specific regions. Leave all blank to make this product available everywhere.
+                    Enter multiple values separated by commas or new lines.
+                </p>
+                <div class="form-group">
+                    <label for="p-countries">Countries</label>
+                    <textarea id="p-countries" name="available_countries" class="form-control" rows="2" placeholder="e.g. India, United States">{{ product.available_countries | join(', ') }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="p-states">States / Provinces</label>
+                    <textarea id="p-states" name="available_states" class="form-control" rows="2" placeholder="e.g. Tamil Nadu, Karnataka">{{ product.available_states | join(', ') }}</textarea>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="p-districts">Districts / Cities / Pincodes</label>
+                    <textarea id="p-districts" name="available_districts" class="form-control" rows="2" placeholder="e.g. Chennai, Coimbatore, 600001, 600001-600100">{{ product.available_districts | join(', ') }}</textarea>
+                    <small style="color: var(--text-secondary); font-size: 0.8rem;">You can also enter exact pincodes or pincode ranges (e.g. 600001-600100) for precise delivery matching.</small>
+                </div>
+            </div>
+            
+            <!-- Gallery images -->
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label for="p-gal">Add Gallery Images (Upload multiple)</label>
+                <input type="file" id="p-gal" name="gallery_images" accept="image/*" class="form-control" style="padding: 0.35rem;" multiple>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                    {% for img in product.images %}
+                        <div style="position: relative; border: 1px solid var(--border-color); border-radius: 4px; padding: 0.15rem; background-color: white;">
+                            <img src="/static/uploads/products/{{ img.image_path }}" style="width: 50px; height: 50px; object-fit: contain;">
+                            {% if img.is_primary %}
+                                <span style="position: absolute; bottom: 0; left: 0; right: 0; background-color: var(--success); color: white; font-size: 0.6rem; text-align: center; font-weight: 700;">Cover</span>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Technical Specifications pairs -->
+            <div style="margin-top: 2rem;">
+                <h4 style="margin-bottom: 0.5rem;">Technical Specifications</h4>
+                <div id="specs-list" style="display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1rem;">
+                    {% if product.specifications %}
+                        {% for key, val in product.specifications.items() %}
+                        <div style="display: flex; gap: 0.5rem;" class="spec-row">
+                            <input type="text" name="spec_key" class="form-control" value="{{ key }}" placeholder="Battery">
+                            <input type="text" name="spec_val" class="form-control" value="{{ val }}" placeholder="5000 mAh">
+                            <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="padding: 0.5rem;"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div style="display: flex; gap: 0.5rem;" class="spec-row">
+                            <input type="text" name="spec_key" class="form-control" placeholder="Specification Label (e.g. Material)">
+                            <input type="text" name="spec_val" class="form-control" placeholder="Value (e.g. Leather)">
+                        </div>
+                    {% endif %}
+                </div>
+                <button type="button" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.5rem;" onclick="addSpecRow()"><i class="fa-solid fa-plus"></i> Add Spec Row</button>
+            </div>
+            
+            <div style="display: flex; gap: 1rem; margin-top: 3rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                <button type="submit" class="btn btn-primary" style="flex: 1;">Save Changes</button>
+                <a href="{{ url_for('seller.dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Right Column: Variants configuration list -->
+    <aside style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.75rem; box-shadow: var(--shadow-sm);">
+        <h3 style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Product Variants</h3>
+        
+        <!-- Add Variant Button & Form -->
+        <button class="btn btn-secondary" style="width: 100%; font-size: 0.9rem; margin-bottom: 1.5rem;" onclick="toggleAddVariantForm()"><i class="fa-solid fa-plus"></i> Create New Variant Option</button>
+        
+        <!-- Add Variant form overlay -->
+        <div id="add-variant-form-box" style="display: none; background-color: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 2rem;">
+            <h4 style="margin-bottom: 1rem;">New Variant Form</h4>
+            <form action="{{ url_for('seller.add_variant', prod_id=product.id) }}" method="POST" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="form-group">
+                    <label for="var-sku">Variant SKU</label>
+                    <input type="text" id="var-sku" name="sku" class="form-control" placeholder="VAR-IPHONE15-WHITE">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="var-stock">Stock Qty</label>
+                        <input type="number" id="var-stock" name="stock" class="form-control" required placeholder="50">
+                    </div>
+                    <div class="form-group">
+                        <label for="var-price">Price (INR)</label>
+                        <input type="number" id="var-price" name="price" class="form-control" required placeholder="49999">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="var-color">Color</label>
+                        <input type="text" id="var-color" name="color" class="form-control" placeholder="White">
+                    </div>
+                    <div class="form-group">
+                        <label for="var-size">Size</label>
+                        <input type="text" id="var-size" name="size" class="form-control" placeholder="Medium">
+                    </div>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                    <div class="form-group">
+                        <label for="var-ram">RAM Memory</label>
+                        <input type="text" id="var-ram" name="ram" class="form-control" placeholder="8 GB">
+                    </div>
+                    <div class="form-group">
+                        <label for="var-storage">Storage</label>
+                        <input type="text" id="var-storage" name="storage" class="form-control" placeholder="256 GB">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="var-img">Variant Image (Optional)</label>
+                    <input type="file" id="var-img" name="variant_image" accept="image/*" class="form-control" style="padding: 0.35rem;">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Save Variant</button>
+            </form>
+        </div>
+        
+        <!-- List existing variants with inline stock update -->
+        {% if product.variants %}
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                {% for var in product.variants %}
+                <div style="border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; background-color: var(--bg-primary);">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                        <div>
+                            <strong style="color: var(--text-primary);">{{ var.sku }}</strong>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 0.2rem;">
+                                {{ [var.color, var.size, var.ram, var.storage] | select | join(' · ') }}
+                            </div>
+                            <div style="font-size: 0.82rem; margin-top: 0.15rem;">Price: <strong>INR {{ var.price }}</strong></div>
+                        </div>
+                        <a href="{{ url_for('seller.delete_variant', var_id=var.id) }}" class="text-danger" style="font-size: 0.85rem; font-weight: 600;" onclick="return confirm('Remove this variant?')"><i class="fa-solid fa-trash"></i></a>
+                    </div>
+                    <!-- Inline stock update for this variant -->
+                    <form action="{{ url_for('seller.update_variant_stock', var_id=var.id) }}" method="POST" style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label style="font-size: 0.8rem; color: var(--text-secondary); white-space: nowrap; margin: 0;">Stock:</label>
+                        <input type="number" name="stock" value="{{ var.stock }}" min="0" class="form-control" style="width: 80px; padding: 0.3rem 0.5rem; font-size: 0.85rem;"
+                            {% if var.stock <= 3 %}style="border-color: var(--danger); background-color: #fff5f5;"{% endif %}>
+                        <button type="submit" class="btn btn-secondary" style="padding: 0.3rem 0.65rem; font-size: 0.8rem; white-space: nowrap;">
+                            <i class="fa-solid fa-floppy-disk"></i> Update
+                        </button>
+                        {% if var.stock <= 3 %}
+                        <span style="font-size: 0.75rem; color: var(--danger); font-weight: 600;"><i class="fa-solid fa-triangle-exclamation"></i> Low!</span>
+                        {% endif %}
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); font-style: italic; font-size: 0.9rem;">No variants created yet. We recommend creating at least one variant configuration to hold inventory stock.</p>
+        {% endif %}
+    </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function addSpecRow() {
+        const container = document.getElementById('specs-list');
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.gap = '0.5rem';
+        row.className = 'spec-row';
+        row.innerHTML = `
+            <input type="text" name="spec_key" class="form-control" placeholder="Specification Label (e.g. Material)">
+            <input type="text" name="spec_val" class="form-control" placeholder="Value (e.g. Leather)">
+            <button type="button" class="btn btn-secondary" onclick="this.parentElement.remove()" style="padding: 0.5rem;"><i class="fa-solid fa-xmark"></i></button>
+        `;
+        container.appendChild(row);
+    }
+
+    function toggleAddVariantForm() {
+        const box = document.getElementById('add-variant-form-box');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    const priceInput = document.getElementById('p-price');
+    const discountInput = document.getElementById('p-disc');
+    const currentPriceDisplay = document.getElementById('calculated-current-price');
+
+    function calculateCurrentPrice() {
+        const price = parseFloat(priceInput.value) || 0;
+        const discount = parseFloat(discountInput.value) || 0;
+        const current = price * (1.0 - (discount / 100.0));
+        currentPriceDisplay.textContent = `INR ${current.toFixed(2)}`;
+    }
+
+    priceInput.addEventListener('input', calculateCurrentPrice);
+    discountInput.addEventListener('input', calculateCurrentPrice);
+    
+    // Run initial calculation
+    calculateCurrentPrice();
+</script>
+{% endblock %}

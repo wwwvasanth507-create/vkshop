@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Manage User Accounts - Admin Center{% endblock %}
+
+{% block content %}
+<div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-sm);">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h2 style="font-family: var(--font-heading); margin-bottom: 0.25rem;">User Accounts Control</h2>
+            <span style="font-size: 0.9rem; color: var(--text-secondary);">Enable, disable, or modify permissions for all platform users.</span>
+        </div>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+    </div>
+
+    <!-- Global User Search -->
+    <div style="display: flex; gap: 0.75rem; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; background: var(--bg-primary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem;">
+        <div style="flex: 1; min-width: 260px; position: relative;">
+            <i class="fa-solid fa-magnifying-glass" style="position: absolute; left: 0.9rem; top: 50%; transform: translateY(-50%); color: var(--text-muted);"></i>
+            <input type="text" id="userSearchInput" placeholder="Search by User ID, Seller ID, Customer/Seller Name, Store Name, Email or Phone Number..."
+                   style="width: 100%; padding: 0.65rem 1rem 0.65rem 2.4rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); font-size: 0.9rem;"
+                   onkeydown="if(event.key==='Enter'){event.preventDefault(); performUserSearch();}">
+        </div>
+        <button type="button" class="btn btn-primary" onclick="performUserSearch()"><i class="fa-solid fa-magnifying-glass"></i> Search</button>
+        <button type="button" class="btn btn-secondary" id="userSearchClearBtn" style="display: none;" onclick="clearUserSearch()"><i class="fa-solid fa-xmark"></i> Clear</button>
+    </div>
+    <div id="userSearchStatus" style="display: none; margin-bottom: 1rem; font-size: 0.85rem; color: var(--text-secondary);"></div>
+    
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Username</th>
+                    <th>Email Address</th>
+                    <th>Role Type</th>
+                    <th>Store Name / Seller ID</th>
+                    <th>Phone</th>
+                    <th>Date Joined</th>
+                    <th>Account Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="usersTableBody">
+                {% for u in users %}
+                <tr>
+                    <td>{{ u.id }}</td>
+                    <td style="font-weight: 600;">{{ u.username }}</td>
+                    <td>{{ u.email }}</td>
+                    <td>
+                        <span class="discount-badge" style="background-color: {% if u.role == 'admin' %}var(--danger){% elif u.role == 'sub_admin' %}#f59e0b{% elif u.role == 'seller' %}var(--accent){% else %}var(--primary-light){% endif %}; color: {% if u.role == 'customer' %}var(--primary){% else %}white{% endif %}; font-size: 0.75rem; text-transform: uppercase;">
+                            {{ u.role }}
+                        </span>
+                    </td>
+                    <td>{% if u.role == 'seller' and u.store_profile %}{{ u.store_profile.name }} (#{{ u.store_profile.id }}){% else %}-{% endif %}</td>
+                    <td>{% if u.role == 'seller' and u.store_profile %}{{ u.store_profile.store_contact or '-' }}{% else %}{{ u.addresses[0].phone if u.addresses else '-' }}{% endif %}</td>
+                    <td>{{ u.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td>
+                        <span class="discount-badge" style="background-color: {% if u.is_active %}#d1fae5{% else %}#fee2e2{% endif %}; color: {% if u.is_active %}#065f46{% else %}#991b1b{% endif %};">
+                            {{ 'Active' if u.is_active else 'Disabled' }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if u.id != current_user.id %}
+                            <a href="{{ url_for('admin.toggle_user_active', user_id=u.id) }}" class="btn {% if u.is_active %}btn-secondary{% else %}btn-primary{% endif %}" style="padding: 0.35rem 0.65rem; font-size: 0.8rem;">
+                                {% if u.is_active %}<i class="fa-solid fa-user-slash"></i> Disable{% else %}<i class="fa-solid fa-user-check"></i> Enable{% endif %}
+                            </a>
+                        {% else %}
+                            <span style="font-size: 0.8rem; color: var(--text-muted); font-style: italic;">Self Account</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div id="userSearchNoResults" style="display: none; text-align: center; padding: 2rem; color: var(--text-muted);">
+            <i class="fa-solid fa-user-slash" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i>
+            No matching accounts found.
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const CURRENT_ADMIN_USER_ID = {{ current_user.id }};
+
+function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function roleBadgeColor(role) {
+    if (role === 'admin') return 'var(--danger)';
+    if (role === 'sub_admin') return '#f59e0b';
+    if (role === 'seller') return 'var(--accent)';
+    return 'var(--primary-light)';
+}
+
+async function performUserSearch() {
+    const q = document.getElementById('userSearchInput').value.trim();
+    const statusEl = document.getElementById('userSearchStatus');
+    const noResultsEl = document.getElementById('userSearchNoResults');
+    const tbody = document.getElementById('usersTableBody');
+
+    if (!q) {
+        statusEl.style.display = 'block';
+        statusEl.textContent = 'Please enter a User ID, Seller ID, name, store name, email, or phone number to search.';
+        return;
+    }
+
+    statusEl.style.display = 'block';
+    statusEl.textContent = 'Searching...';
+    document.getElementById('userSearchClearBtn').style.display = 'inline-flex';
+
+    try {
+        const res = await fetch(`{{ url_for('admin.user_search') }}?q=${encodeURIComponent(q)}`);
+        if (!res.ok) throw new Error('Search request failed');
+        const results = await res.json();
+
+        if (!results.length) {
+            tbody.innerHTML = '';
+            noResultsEl.style.display = 'block';
+            statusEl.textContent = `No accounts matched "${q}".`;
+            return;
+        }
+
+        noResultsEl.style.display = 'none';
+        statusEl.textContent = `Found ${results.length} matching account(s) for "${q}".`;
+
+        tbody.innerHTML = results.map(u => {
+            const storeCell = u.store_name ? `${escapeHtml(u.store_name)} (#${escapeHtml(u.store_id)})` : '-';
+            const phoneCell = u.phone ? escapeHtml(u.phone) : '-';
+            const statusBadge = u.is_active
+                ? `<span class="discount-badge" style="background-color:#d1fae5;color:#065f46;">Active</span>`
+                : `<span class="discount-badge" style="background-color:#fee2e2;color:#991b1b;">Disabled</span>`;
+            let actionCell;
+            if (u.id === CURRENT_ADMIN_USER_ID) {
+                actionCell = `<span style="font-size:0.8rem;color:var(--text-muted);font-style:italic;">Self Account</span>`;
+            } else {
+                const btnClass = u.is_active ? 'btn-secondary' : 'btn-primary';
+                const btnIcon = u.is_active ? 'fa-user-slash' : 'fa-user-check';
+                const btnLabel = u.is_active ? 'Disable' : 'Enable';
+                actionCell = `<a href="/admin/user/toggle/${u.id}" class="btn ${btnClass}" style="padding:0.35rem 0.65rem;font-size:0.8rem;"><i class="fa-solid ${btnIcon}"></i> ${btnLabel}</a>`;
+            }
+            return `<tr>
+                <td>${u.id}</td>
+                <td style="font-weight:600;">${escapeHtml(u.username)}</td>
+                <td>${escapeHtml(u.email)}</td>
+                <td><span class="discount-badge" style="background-color:${roleBadgeColor(u.role)};color:${u.role === 'customer' ? 'var(--primary)' : 'white'};font-size:0.75rem;text-transform:uppercase;">${escapeHtml(u.role)}</span></td>
+                <td>${storeCell}</td>
+                <td>${phoneCell}</td>
+                <td>-</td>
+                <td>${statusBadge}</td>
+                <td>${actionCell}</td>
+            </tr>`;
+        }).join('');
+    } catch (err) {
+        statusEl.textContent = 'Search failed. Please try again.';
+        console.error('User search error:', err);
+    }
+}
+
+function clearUserSearch() {
+    document.getElementById('userSearchInput').value = '';
+    document.getElementById('userSearchStatus').style.display = 'none';
+    document.getElementById('userSearchNoResults').style.display = 'none';
+    document.getElementById('userSearchClearBtn').style.display = 'none';
+    window.location.reload();
+}
+</script>
+{% endblock %}

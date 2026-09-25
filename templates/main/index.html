@@ -1,0 +1,282 @@
+{% extends 'base.html' %}
+{% block title %}VKshop | Premium E-Commerce Marketplace{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}?v=1.1">
+{% endblock %}
+
+{% block content %}
+<!-- Sliding Hero Carousel -->
+{% if banners %}
+<div class="hero-slider">
+    <div class="slider-track" id="slider-track">
+        {% for banner in banners %}
+        <div class="slide" style="background: linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(245, 158, 11, 0.05));">
+            <div class="slide-content">
+                <span class="discount-badge" style="margin-bottom: 1rem; display: inline-block;">Limited Offer</span>
+                <h2>{{ banner.title }}</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 2rem;">{{ banner.subtitle }}</p>
+                <a href="{{ banner.link_url or '#' }}" class="btn btn-primary">Shop Now <i class="fa-solid fa-arrow-right"></i></a>
+            </div>
+            <img src="/static/uploads/banners/{{ banner.image_path }}" class="slide-img" alt="{{ banner.title }}">
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% else %}
+<!-- Fallback Banner -->
+<div class="hero-slider" style="display: flex; align-items: center; justify-content: space-between; padding: 3rem;">
+    <div class="slide-content">
+        <span class="discount-badge" style="margin-bottom: 1rem; display: inline-block;">Welcome to VKshop</span>
+        <h2>Discover The Best Tech Deals</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem;">Explore the latest premium smartphones, wearables, and electronic accessories at unbeatable prices.</p>
+        <a href="/search" class="btn btn-primary">Browse Catalog <i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+    <div style="font-size: 8rem; color: var(--primary); margin-right: 5%; opacity: 0.15;">
+        <i class="fa-solid fa-laptop-code"></i>
+    </div>
+</div>
+{% endif %}
+
+<!-- Category Cards Horizontal Scroll Wrapper -->
+<h3 style="margin-bottom: 1.5rem; font-family: var(--font-heading);">Shop by Category</h3>
+<div class="category-scroll-container" style="display: flex !important; flex-wrap: nowrap !important; gap: 1.25rem !important; overflow-x: auto !important; scroll-behavior: smooth !important; padding: 0.5rem 0.25rem !important; margin-bottom: 3.5rem !important; -webkit-overflow-scrolling: touch !important;">
+    {% for cat in all_categories %}
+    <a href="{{ url_for('main.category_detail', slug=cat.slug) }}" style="flex: 0 0 160px; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; transition: all var(--transition-normal); box-shadow: var(--shadow-sm);" onmouseover="this.style.borderColor='var(--primary)'; this.style.transform='translateY(-3px)';" onmouseout="this.style.borderColor='var(--border-color)'; this.style.transform='translateY(0)';">
+        <div style="width: 50px; height: 50px; background-color: var(--primary-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--primary); font-size: 1.5rem; overflow: hidden;">
+            {% if cat.icon and ('.' in cat.icon or '/' in cat.icon or cat.icon.startswith('cat_icon_')) %}
+                <img src="/static/uploads/categories/{{ cat.icon }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ cat.name }}">
+            {% else %}
+                <i class="fa-solid {{ cat.icon or 'fa-tag' }}"></i>
+            {% endif %}
+        </div>
+        <span style="font-weight: 600; color: var(--text-primary); font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">{{ cat.name }}</span>
+    </a>
+    {% endfor %}
+</div>
+
+<!-- Recommended For You Section (Exactly 5 Auto-Learned Products) -->
+{% if interested %}
+<div class="section-title-row">
+    <h3 style="font-family: var(--font-heading);">Recommended For You</h3>
+</div>
+<div class="products-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+    {% for prod in interested %}
+    <div class="product-card">
+        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+            <i class="fa-solid fa-share-nodes"></i>
+        </button>
+        <button class="product-wishlist-btn" onclick="toggleWishlist({{ prod.id }})" title="Add to Wishlist" aria-label="Toggle wishlist for {{ prod.name }}">
+            {% if wishlist_product_ids and prod.id in wishlist_product_ids %}
+                <i class="fa-solid fa-heart" style="color: var(--danger);"></i>
+            {% else %}
+                <i class="fa-regular fa-heart"></i>
+            {% endif %}
+        </button>
+        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+            <div class="product-card-img-wrapper">
+                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+            </div>
+            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+            <div class="product-name">{{ prod.name }}</div>
+            
+            <div class="rating-stars">
+                {% set avg = prod.average_rating %}
+                {% for i in range(1, 6) %}
+                    {% if avg >= i %}
+                        <i class="fa-solid fa-star"></i>
+                    {% else %}
+                        <i class="fa-regular fa-star"></i>
+                    {% endif %}
+                {% endfor %}
+                <span>({{ prod.reviews|length }})</span>
+            </div>
+            
+            <div class="product-price-row">
+                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                {% if prod.discount_percent > 0 %}
+                    <span class="base-price">INR {{ prod.base_price|round(2) }}</span>
+                    <span class="discount-badge">{{ prod.discount_percent|round(0) }}% Off</span>
+                {% endif %}
+            </div>
+            {% if prod.is_out_of_stock %}
+                <div class="out-of-stock-overlay">
+                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                </div>
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Today's Deals (Featured Products) -->
+<div class="section-title-row">
+    <h3 style="font-family: var(--font-heading);">Today's Deals</h3>
+    <a href="/search" style="font-weight: 600;">View All</a>
+</div>
+<div class="products-grid">
+    {% for prod in featured %}
+    <div class="product-card">
+        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+            <i class="fa-solid fa-share-nodes"></i>
+        </button>
+        <button class="product-wishlist-btn" onclick="toggleWishlist({{ prod.id }})" title="Add to Wishlist" aria-label="Toggle wishlist for {{ prod.name }}">
+            {% if wishlist_product_ids and prod.id in wishlist_product_ids %}
+                <i class="fa-solid fa-heart" style="color: var(--danger);"></i>
+            {% else %}
+                <i class="fa-regular fa-heart"></i>
+            {% endif %}
+        </button>
+        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+            <div class="product-card-img-wrapper">
+                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+            </div>
+            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+            <div class="product-name">{{ prod.name }}</div>
+            
+            <div class="rating-stars">
+                {% set avg = prod.average_rating %}
+                {% for i in range(1, 6) %}
+                    {% if avg >= i %}
+                        <i class="fa-solid fa-star"></i>
+                    {% else %}
+                        <i class="fa-regular fa-star"></i>
+                    {% endif %}
+                {% endfor %}
+                <span>({{ prod.reviews|length }})</span>
+            </div>
+            
+            <div class="product-price-row">
+                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                {% if prod.discount_percent > 0 %}
+                    <span class="base-price">INR {{ prod.base_price|round(2) }}</span>
+                    <span class="discount-badge">{{ prod.discount_percent|round(0) }}% Off</span>
+                {% endif %}
+            </div>
+            {% if prod.is_out_of_stock %}
+                <div class="out-of-stock-overlay">
+                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                </div>
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- New Arrivals / Trending -->
+<div class="section-title-row">
+    <h3 style="font-family: var(--font-heading);">Trending & New Arrivals</h3>
+    <a href="/search?sort=newest" style="font-weight: 600;">Explore New</a>
+</div>
+<div class="products-grid">
+    {% for prod in trending %}
+    <div class="product-card">
+        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+            <i class="fa-solid fa-share-nodes"></i>
+        </button>
+        <button class="product-wishlist-btn" onclick="toggleWishlist({{ prod.id }})" title="Add to Wishlist" aria-label="Toggle wishlist for {{ prod.name }}">
+            {% if wishlist_product_ids and prod.id in wishlist_product_ids %}
+                <i class="fa-solid fa-heart" style="color: var(--danger);"></i>
+            {% else %}
+                <i class="fa-regular fa-heart"></i>
+            {% endif %}
+        </button>
+        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+            <div class="product-card-img-wrapper">
+                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+            </div>
+            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+            <div class="product-name">{{ prod.name }}</div>
+            
+            <div class="rating-stars">
+                {% set avg = prod.average_rating %}
+                {% for i in range(1, 6) %}
+                    {% if avg >= i %}
+                        <i class="fa-solid fa-star"></i>
+                    {% else %}
+                        <i class="fa-regular fa-star"></i>
+                    {% endif %}
+                {% endfor %}
+                <span>({{ prod.reviews|length }})</span>
+            </div>
+            
+            <div class="product-price-row">
+                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                {% if prod.discount_percent > 0 %}
+                    <span class="base-price">INR {{ prod.base_price|round(2) }}</span>
+                    <span class="discount-badge">{{ prod.discount_percent|round(0) }}% Off</span>
+                {% endif %}
+            </div>
+            {% if prod.is_out_of_stock %}
+                <div class="out-of-stock-overlay">
+                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                </div>
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Recently Viewed -->
+{% if recent %}
+<div class="section-title-row" style="margin-top: 4rem;">
+    <h3 style="font-family: var(--font-heading);">Recently Viewed Products</h3>
+</div>
+<div class="products-grid">
+    {% for prod in recent %}
+    <div class="product-card">
+        <button class="product-share-btn" data-share-title="{{ prod.name }}" data-share-url="{{ url_for('main.product_detail', slug=prod.slug) }}" onclick="shareProduct(event)" title="Share Product" aria-label="Share {{ prod.name }}">
+            <i class="fa-solid fa-share-nodes"></i>
+        </button>
+        <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+            <div class="product-card-img-wrapper">
+                <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+            </div>
+            <div class="product-brand">{{ prod.brand.name if prod.brand else 'VKshop' }}</div>
+            <div class="product-name">{{ prod.name }}</div>
+            <div class="product-price-row">
+                <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+            </div>
+            {% if prod.is_out_of_stock %}
+                <div class="out-of-stock-overlay">
+                    <span><i class="fa-solid fa-ban"></i> Out of Stock</span>
+                </div>
+            {% endif %}
+        </a>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Newsletter Card -->
+<div style="background: linear-gradient(135deg, var(--primary), var(--primary-hover)); color: white; border-radius: var(--radius-xl); padding: 3rem; text-align: center; margin: 5rem 0 2rem; box-shadow: var(--shadow-lg);">
+    <h3 style="color: white; font-size: 2rem; margin-bottom: 0.5rem; font-family: var(--font-heading);">Subscribe to our Newsletter</h3>
+    <p style="color: rgba(255,255,255,0.8); max-width: 600px; margin: 0 auto 2rem; font-size: 1rem;">
+        Get real-time updates on today's flash sales, secret coupons, price drop notifications, and weekly new arrivals.
+    </p>
+    <form action="#" method="POST" class="newsletter-form" onsubmit="alert('Demo subscription registered!'); return false;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="email" placeholder="Enter your email address" style="flex: 1; border: none; padding: 0.75rem 1.25rem; border-radius: var(--radius-md); outline: none; font-size: 0.95rem;" required>
+        <button type="submit" class="btn btn-secondary" style="border: none; background-color: var(--accent); color: white;">Subscribe</button>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Toggle Carousel Banners automatically
+    let currentSlide = 0;
+    const slides = document.querySelectorAll('.slide');
+    const track = document.getElementById('slider-track');
+    
+    if (slides.length > 1 && track) {
+        setInterval(() => {
+            currentSlide = (currentSlide + 1) % slides.length;
+            track.style.transform = `translateX(-${currentSlide * 100}%)`;
+        }, 5000);
+    }
+
+
+</script>
+{% endblock %}

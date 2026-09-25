@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+{% block title %}Login - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 450px; margin: 3rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2.5rem; box-shadow: var(--shadow-lg);">
+    <h2 style="text-align: center; margin-bottom: 2rem; font-family: var(--font-heading);">Sign In to VKshop</h2>
+    
+    <form action="{{ url_for('auth.login') }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <!-- Login input (username or email) -->
+        <div class="form-group">
+            <label for="login_input">Username or Email</label>
+            <input type="text" id="login_input" name="login_input" class="form-control" placeholder="Enter username or email" required>
+        </div>
+        
+        <!-- Password -->
+        <div class="form-group">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                <label for="password" style="margin-bottom: 0;">Password</label>
+                <a href="{{ url_for('auth.forgot_password') }}" style="font-size: 0.8rem; font-weight: 500;">Forgot password?</a>
+            </div>
+            <input type="password" id="password" name="password" class="form-control" placeholder="••••••••" required>
+        </div>
+        
+        <!-- Remember me -->
+        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+            <input type="checkbox" id="remember" name="remember" style="cursor: pointer;">
+            <label for="remember" style="font-size: 0.85rem; cursor: pointer; color: var(--text-secondary);">Remember me on this device</label>
+        </div>
+        
+        <button type="submit" class="btn btn-primary" style="width: 100%;">Sign In</button>
+    </form>
+    
+    <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+        New to VKshop? <a href="{{ url_for('auth.register') }}" style="font-weight: 600;">Create an account</a>
+    </div>
+</div>
+{% endblock %}

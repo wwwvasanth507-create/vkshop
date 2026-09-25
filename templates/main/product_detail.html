@@ -1,0 +1,382 @@
+{% extends 'base.html' %}
+{% block title %}{{ product.name }} - VKshop{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="product-detail-layout">
+    <!-- Left: Gallery Media -->
+    <div class="product-gallery">
+        <div class="gallery-main" id="gallery-main-container">
+            <img src="/static/uploads/products/{{ product.main_image }}" id="main-image-el" alt="{{ product.name }}">
+        </div>
+        
+        <div class="gallery-thumbs">
+            <!-- Main thumbnail -->
+            <div class="gallery-thumb active" data-large="/static/uploads/products/{{ product.main_image }}">
+                <img src="/static/uploads/products/{{ product.main_image }}" alt="Thumbnail Main">
+            </div>
+            <!-- Extra image thumbnails -->
+            {% for img in product.images %}
+                {% if not img.is_primary %}
+                <div class="gallery-thumb" data-large="/static/uploads/products/{{ img.image_path }}">
+                    <img src="/static/uploads/products/{{ img.image_path }}" alt="Thumbnail Additional">
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Right: Purchase Details & Variants -->
+    <div style="display: flex; flex-direction: column; min-width: 0;">
+        <span class="product-brand" style="font-size: 0.9rem;">{{ product.brand.name if product.brand else 'VKshop' }}</span>
+        <h1 style="font-family: var(--font-heading); font-size: 2rem; line-height: 1.2; margin: 0.5rem 0 1rem;">{{ product.name }}</h1>
+        
+        <!-- Ratings summary -->
+        <div class="rating-stars" style="font-size: 1rem; margin-bottom: 1.5rem;">
+            {% set avg = product.average_rating %}
+            {% for i in range(1, 6) %}
+                {% if avg >= i %}
+                    <i class="fa-solid fa-star"></i>
+                {% else %}
+                    <i class="fa-regular fa-star"></i>
+                {% endif %}
+            {% endfor %}
+            <span style="font-weight: 500;">{{ avg }} Stars ({{ reviews|length }} customer reviews)</span>
+        </div>
+        
+        <div style="border-top: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color); padding: 1.5rem 0; margin-bottom: 2rem;">
+            <!-- Price Display -->
+            <div style="display: flex; align-items: baseline; gap: 0.75rem; margin-bottom: 0.5rem;">
+                <span class="offer-price" id="detail-offer-price" style="font-size: 2rem;">INR {{ product.offer_price|round(2) }}</span>
+                {% if product.discount_percent > 0 %}
+                    <span class="base-price" style="font-size: 1.25rem;">INR {{ product.base_price|round(2) }}</span>
+                    <span class="discount-badge" style="font-size: 0.85rem;">{{ product.discount_percent|round(0) }}% OFF</span>
+                {% endif %}
+            </div>
+            
+            <div id="detail-stock-count" style="font-weight: 600; font-size: 0.95rem; margin-bottom: 1rem;">
+                <!-- Initial stock of first variant or general product -->
+                {% if product.is_out_of_stock %}
+                    <span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> Out of Stock</span>
+                {% elif product.variants %}
+                    <span style="color: var(--success);">Select variant to view availability</span>
+                {% else %}
+                    <span style="color: var(--success);">In Stock ({{ product.stock }} items)</span>
+                {% endif %}
+            </div>
+            
+            <div id="detail-sku" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+                SKU: {{ product.sku }}
+            </div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                Shipping charges: INR {{ product.shipping_charges }} (Delivered in {{ product.delivery_days }} business days)
+            </div>
+        </div>
+        
+        <!-- VARIANT SELECTION & ORDERING FORMS -->
+        {% if product.is_out_of_stock %}
+            <div style="background-color: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 2rem; text-align: center; font-weight: 700;">
+                <i class="fa-solid fa-circle-exclamation"></i> This product is currently out of stock
+            </div>
+            <button type="button" class="btn btn-secondary" style="width: 100%; padding: 0.9rem 1rem; opacity: 0.6; cursor: not-allowed;" disabled>
+                <i class="fa-solid fa-ban"></i> Out of Stock — Cannot Order
+            </button>
+        {% elif not product.store.user.is_active or product.store.status == 'Suspended' %}
+            <div style="background-color: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 2rem; text-align: center; font-weight: 700;">
+                <i class="fa-solid fa-circle-exclamation"></i> seller not available
+            </div>
+        {% else %}
+            {% if product.variants %}
+            <div style="margin-bottom: 2rem;">
+                <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 1rem;">Select Specifications</h4>
+                
+                <!-- Hidden Fields for Tracking Selection -->
+                <input type="hidden" id="variant-product-id" value="{{ product.id }}">
+                
+                {% set colors = [] %}
+                {% set sizes = [] %}
+                {% set rams = [] %}
+                {% set storages = [] %}
+                
+                {% for var in product.variants %}
+                    {% if var.color and var.color not in colors %}{% set _ = colors.append(var.color) %}{% endif %}
+                    {% if var.size and var.size not in sizes %}{% set _ = sizes.append(var.size) %}{% endif %}
+                    {% if var.ram and var.ram not in rams %}{% set _ = rams.append(var.ram) %}{% endif %}
+                    {% if var.storage and var.storage not in storages %}{% set _ = storages.append(var.storage) %}{% endif %}
+                {% endfor %}
+                
+                <!-- Color Selector -->
+                {% if colors %}
+                <div class="variant-selector variant-group" data-attr="color">
+                    <label style="font-weight: 600; font-size: 0.85rem;">Color</label>
+                    <div class="variant-options">
+                        {% for c in colors %}
+                            <button type="button" class="variant-pill" data-val="{{ c }}">{{ c }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Size Selector -->
+                {% if sizes %}
+                <div class="variant-selector variant-group" data-attr="size">
+                    <label style="font-weight: 600; font-size: 0.85rem;">Size</label>
+                    <div class="variant-options">
+                        {% for s in sizes %}
+                            <button type="button" class="variant-pill" data-val="{{ s }}">{{ s }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- RAM Selector -->
+                {% if rams %}
+                <div class="variant-selector variant-group" data-attr="ram">
+                    <label style="font-weight: 600; font-size: 0.85rem;">RAM Memory</label>
+                    <div class="variant-options">
+                        {% for r in rams %}
+                            <button type="button" class="variant-pill" data-val="{{ r }}">{{ r }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Storage Selector -->
+                {% if storages %}
+                <div class="variant-selector variant-group" data-attr="storage">
+                    <label style="font-weight: 600; font-size: 0.85rem;">Storage Capacity</label>
+                    <div class="variant-options">
+                        {% for st in storages %}
+                            <button type="button" class="variant-pill" data-val="{{ st }}">{{ st }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            <!-- Add to Cart Form -->
+            <form action="{{ url_for('customer.add_to_cart') }}" method="POST" class="cart-action-form" style="display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 2rem; align-items: stretch;">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                <input type="hidden" name="variant_id" id="selected-variant-id" value="">
+                
+                <div class="cart-qty-box" style="width: 100px; flex-shrink: 0;">
+                    <label for="quantity" class="sr-only">Quantity</label>
+                    <select name="quantity" id="quantity" class="form-control" style="height: 100%; text-align: center;" aria-label="Select Quantity">
+                        {% for i in range(1, 11) %}
+                            <option value="{{ i }}">{{ i }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <button type="submit" id="add-to-cart-btn" class="btn btn-primary cart-buy-btn" style="flex: 1; min-width: 160px; padding: 0.9rem 1rem;" {% if product.variants %}disabled{% endif %}>
+                    {% if product.variants %}Select attributes to buy{% else %}Add to Cart{% endif %}
+                </button>
+                
+                <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                    <a href="{{ url_for('customer.add_to_wishlist', product_id=product.id) }}" class="btn btn-secondary" title="Save to Wishlist">
+                        <i class="fa-regular fa-heart"></i>
+                    </a>
+                    <button type="button" class="btn btn-secondary" title="Share Product" data-share-title="{{ product.name }}" data-share-url="{{ url_for('main.product_detail', slug=product.slug) }}" onclick="shareProduct(event)">
+                        <i class="fa-solid fa-share-nodes"></i>
+                    </button>
+                </div>
+            </form>
+        {% endif %}
+        
+        <!-- Seller store detail block -->
+        {% if product.store %}
+        <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Sold By</span>
+                <div style="font-weight: 700; color: var(--text-primary);">{{ product.store.name }}</div>
+            </div>
+            <div style="font-size: 0.85rem; background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-weight: 600;">
+                ★ {{ product.store.rating }} Seller Rating
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Bottom tabs: Details, Q&A, Reviews -->
+<div style="margin-top: 4rem;">
+    <!-- Technical Specifications -->
+    <div style="margin-bottom: 3.5rem;">
+        <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Product Specifications</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">{{ product.description }}</p>
+        
+        {% if product.specifications %}
+        <div class="table-wrapper" style="max-width: 600px;">
+            <table class="table">
+                <tbody>
+                    {% for key, val in product.specifications.items() %}
+                        <tr>
+                            <td style="font-weight: 600; width: 200px; color: var(--text-secondary);">{{ key }}</td>
+                            <td>{{ val }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+    </div>
+    
+    <!-- Q&A Section -->
+    <div style="margin-bottom: 3.5rem;">
+        <h3 style="font-family: var(--font-heading); margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Customer Questions & Answers</h3>
+        
+        <!-- Ask a question form -->
+        <form action="{{ url_for('main.ask_question', product_id=product.id) }}" method="POST" style="margin-bottom: 2rem; display: flex; gap: 0.5rem;">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="question" class="form-control" placeholder="Have a question about specs, features, or shipping? Ask here..." required>
+            <button type="submit" class="btn btn-secondary">Submit</button>
+        </form>
+        
+        {% if questions %}
+            <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                {% for q in questions %}
+                <div style="border-left: 3px solid var(--primary); padding-left: 1rem;">
+                    <div style="font-weight: 700; color: var(--text-primary);">Q: {{ q.question }}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Asked by {{ q.user.username }} on {{ q.created_at.strftime('%Y-%m-%d') }}</div>
+                    
+                    {% if q.answer %}
+                        <div style="color: var(--text-secondary); padding-left: 0.5rem; margin-top: 0.25rem;">
+                            <b>A:</b> {{ q.answer }}
+                            <span style="font-size: 0.75rem; color: var(--text-muted); display: block; margin-top: 0.15rem;">Answered by {{ q.replier.username if q.replier else 'Seller' }}</span>
+                        </div>
+                    {% else %}
+                        <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; padding-left: 0.5rem;">No answer yet.</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p style="color: var(--text-muted); font-style: italic;">No questions have been asked yet. Be the first to ask!</p>
+        {% endif %}
+    </div>
+    
+    <!-- Reviews Section -->
+    <div style="margin-bottom: 3.5rem;">
+        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Customer Reviews</h3>
+        
+        <div style="display: grid; grid-template-columns: 300px 1fr; gap: 3rem;">
+            <!-- Left: Stats & write Review -->
+            <div>
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: var(--radius-lg); text-align: center; margin-bottom: 1.5rem;">
+                    <div style="font-size: 3rem; font-weight: 800; color: var(--text-primary); line-height: 1;">{{ avg }}</div>
+                    <div style="color: var(--accent); margin: 0.5rem 0;">
+                        {% for i in range(1, 6) %}
+                            {% if avg >= i %}
+                                <i class="fa-solid fa-star"></i>
+                            {% else %}
+                                <i class="fa-regular fa-star"></i>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    <span style="font-size: 0.85rem; color: var(--text-muted);">Out of 5 Stars</span>
+                </div>
+                
+                <!-- Review Form -->
+                {% if current_user.is_authenticated %}
+                <div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); padding: 1.5rem; border-radius: var(--radius-lg);">
+                    <h4 style="margin-bottom: 1rem;">Write a Review</h4>
+                    <form action="{{ url_for('main.submit_review', product_id=product.id) }}" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="form-group">
+                            <label for="review-rating">Rating</label>
+                            <select id="review-rating" name="rating" class="form-control" aria-label="Review rating selection">
+                                <option value="5">5 Stars (Excellent)</option>
+                                <option value="4">4 Stars (Very Good)</option>
+                                <option value="3">3 Stars (Good)</option>
+                                <option value="2">2 Stars (Fair)</option>
+                                <option value="1">1 Star (Poor)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="review-title">Review Title</label>
+                            <input type="text" id="review-title" name="title" class="form-control" placeholder="Summarize your review" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="review-content">Your Review</label>
+                            <textarea id="review-content" name="content" class="form-control" rows="4" placeholder="What did you like or dislike?" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">Submit Review</button>
+                    </form>
+                </div>
+                {% else %}
+                <p style="color: var(--text-muted); text-align: center;"><a href="{{ url_for('auth.login') }}">Log in</a> to write a product review.</p>
+                {% endif %}
+            </div>
+            
+            <!-- Right: Reviews list -->
+            <div>
+                {% if reviews %}
+                    <div style="display: flex; flex-direction: column; gap: 2rem;">
+                        {% for r in reviews %}
+                        <div style="border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <div style="color: var(--accent);">
+                                        {% for i in range(1, 6) %}
+                                            {% if r.rating >= i %}
+                                                <i class="fa-solid fa-star"></i>
+                                            {% else %}
+                                                <i class="fa-regular fa-star"></i>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    <strong style="color: var(--text-primary);">{{ r.title }}</strong>
+                                </div>
+                                <span style="font-size: 0.85rem; color: var(--text-muted);">{{ r.created_at.strftime('%Y-%m-%d') }}</span>
+                            </div>
+                            
+                            <div style="font-size: 0.85rem; margin-bottom: 0.5rem;">
+                                <span style="font-weight: 600; color: var(--text-secondary);">By {{ r.user.username }}</span>
+                                {% if r.is_verified_purchase %}
+                                    <span class="discount-badge" style="background-color: #d1fae5; color: #065f46; font-size: 0.7rem; margin-left: 0.5rem;">Verified Purchase</span>
+                                {% endif %}
+                            </div>
+                            
+                            <p style="color: var(--text-secondary);">{{ r.content }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p style="color: var(--text-muted); font-style: italic;">No reviews yet. Be the first to review this product!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Related Products -->
+    {% if related %}
+    <div style="margin-top: 4rem;">
+        <h3 style="font-family: var(--font-heading); margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">Related Products</h3>
+        <div class="products-grid">
+            {% for prod in related %}
+            <div class="product-card">
+                <a href="{{ url_for('main.track_click', product_id=prod.id) }}" class="product-card-info">
+                    <div class="product-card-img-wrapper">
+                        <img src="/static/uploads/products/{{ prod.main_image }}" class="product-card-img" alt="{{ prod.name }}">
+                    </div>
+                    <div class="product-name">{{ prod.name }}</div>
+                    <div class="product-price-row">
+                        <span class="offer-price">INR {{ prod.offer_price|round(2) }}</span>
+                    </div>
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/product.js') }}"></script>
+{% endblock %}

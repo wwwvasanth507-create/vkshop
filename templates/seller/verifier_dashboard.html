@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+{% block title %}Verifier Dashboard - VKshop{% endblock %}
+
+{% block content %}
+<div style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; box-shadow: var(--shadow-sm); margin-bottom: 2rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem; margin-bottom: 1.5rem;">
+        <div>
+            <h2 style="font-family: var(--font-heading); margin-bottom: 0.25rem;">Verifier Dashboard</h2>
+            <span style="font-size: 0.9rem; color: var(--text-secondary);">Logged in as: <strong>{{ current_user.username }}</strong> for store: <strong>{{ store.name }}</strong></span>
+        </div>
+        <div>
+            <a href="{{ url_for('auth.logout') }}" class="btn btn-secondary" style="color: var(--danger); border-color: var(--danger);"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
+        </div>
+    </div>
+
+    <h3 style="margin-bottom: 1rem; font-family: var(--font-heading); color: var(--text-primary);">Orders Awaiting Verification (UPI, Cash on Delivery &amp; Others)</h3>
+
+    <div class="table-wrapper">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Order Number</th>
+                    <th>Payment Method</th>
+                    <th>Customer Info</th>
+                    <th>Reference / UTR</th>
+                    <th>Amount</th>
+                    <th>Proof (Screenshot)</th>
+                    <th>Comments / SMS</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for o in orders %}
+                <tr>
+                    <td style="font-weight: 700;">{{ o.order_number }}</td>
+                    <td>
+                        {% if o.payment.payment_method == 'COD' %}
+                            <span style="display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; background-color: #fef3c7; color: #92400e; font-size: 0.75rem; font-weight: 700;">
+                                <i class="fa-solid fa-money-bill-wave"></i> COD
+                            </span>
+                        {% else %}
+                            <span style="display: inline-block; padding: 0.2rem 0.55rem; border-radius: 999px; background-color: #dbeafe; color: #1e40af; font-size: 0.75rem; font-weight: 700;">
+                                {{ o.payment.payment_method }}
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <strong>{{ o.user.username }}</strong><br>
+                        Contact: {{ o.payment.contact_number or (o.address.phone if o.address else 'N/A') }}<br>
+                        {% if o.address %}
+                        <span style="font-size: 0.8rem; color: var(--text-secondary);">
+                            {{ o.address.city }}, {{ o.address.state }} - {{ o.address.postalCode }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if o.payment.payment_method == 'COD' %}
+                            <span style="color: var(--text-muted); font-style: italic;">N/A (Cash on Delivery)</span>
+                        {% else %}
+                            <span style="font-family: monospace; font-weight: 600; font-size: 0.95rem;">{{ o.payment.transaction_id }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="font-weight: 700; color: var(--primary);">INR {{ o.payment.amount|round(2) }}</td>
+                    <td>
+                        {% if o.payment.screenshot_path %}
+                            <a href="/static/uploads/users/{{ o.payment.screenshot_path }}" target="_blank" style="text-decoration: none;">
+                                <img src="/static/uploads/users/{{ o.payment.screenshot_path }}" alt="Proof" style="width: 50px; height: 50px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); object-fit: cover;">
+                            </a>
+                        {% elif o.payment.payment_method == 'COD' %}
+                            <span style="color: var(--text-muted); font-style: italic;">Not applicable</span>
+                        {% else %}
+                            <span style="color: var(--text-muted); font-style: italic;">No attachment</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span style="font-size: 0.85rem; color: var(--text-secondary);">{{ o.payment.description or '-' }}</span>
+                    </td>
+                    <td>
+                        <div style="display: flex; flex-direction: column; gap: 0.5rem; min-width: 130px;">
+                            <!-- Approve Button -->
+                            <a href="{{ url_for('seller.verifier_confirm_payment', order_id=o.id) }}"
+                               class="btn btn-primary verifier-action-btn"
+                               data-order-id="{{ o.id }}"
+                               data-action="approve"
+                               style="padding: 0.4rem 0.8rem; font-size: 0.8rem; font-weight: 600; text-align: center;">
+                                <i class="fa-solid fa-check"></i> Approve &amp; Confirm
+                            </a>
+
+                            <!-- Cancel Button -->
+                            <a href="{{ url_for('seller.verifier_cancel_payment', order_id=o.id) }}"
+                               class="btn btn-secondary verifier-action-btn"
+                               data-order-id="{{ o.id }}"
+                               data-action="cancel"
+                               style="padding: 0.4rem 0.8rem; font-size: 0.8rem; font-weight: 600; text-align: center; color: var(--danger); border-color: var(--danger);">
+                                <i class="fa-solid fa-xmark"></i> Cancel Order
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="8" style="text-align: center; color: var(--text-muted); font-style: italic;">No orders are currently awaiting payment verification.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Info box explaining what Cancel does -->
+<div style="background-color: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--radius-md); padding: 1.25rem; display: flex; gap: 0.75rem; align-items: flex-start; margin-bottom: 2rem;">
+    <i class="fa-solid fa-circle-info" style="color: #ea580c; font-size: 1.2rem; flex-shrink: 0; margin-top: 0.1rem;"></i>
+    <div>
+        <strong style="color: #9a3412; font-size: 0.9rem;">What happens when you approve or cancel an order?</strong>
+        <p style="margin: 0.35rem 0 0; font-size: 0.85rem; color: #7c2d12; line-height: 1.5;">
+            <strong>Approve &amp; Confirm</strong> moves the order to <strong>Confirmed</strong> so the seller can ship it. For UPI, the payment is marked Completed and earnings/rewards are credited now. For Cash on Delivery, earnings/rewards were already credited at checkout, and the payment itself stays <strong>Pending</strong> until it's collected on delivery.
+            <br><br>
+            <strong>Cancel Order</strong> cancels the order, <strong>restores</strong> product stock (and, for Cash on Delivery, reverses any earnings/rewards already credited), and the customer receives a notification:
+            <em>"Your payment details is incorrect. So, the order is cancelled by the payment verifiers. If any trouble please make complaint with appropriate proofs. Thank You!"</em>
+        </p>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.verifier-action-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = btn.getAttribute('href');
+            const actionCell = btn.parentElement;
+            
+            actionCell.innerHTML = '<span style="color: var(--text-muted);"><i class="fa-solid fa-spinner fa-spin"></i> Processing...</span>';
+            
+            fetch(url + '?ajax=true', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.status === 'Confirmed') {
+                        actionCell.innerHTML = '<span style="color: var(--success); font-weight: bold;"><i class="fa-solid fa-circle-check"></i> Approved</span>';
+                    } else if (data.status === 'Cancelled') {
+                        actionCell.innerHTML = '<span style="color: var(--danger); font-weight: bold;"><i class="fa-solid fa-circle-xmark"></i> Cancelled</span>';
+                    }
+                } else {
+                    actionCell.innerHTML = `<span style="color: var(--danger); font-size: 0.8rem; font-weight: bold;">Error: ${data.error}</span>`;
+                }
+            })
+            .catch(err => {
+                console.error("AJAX Error:", err);
+                actionCell.innerHTML = '<span style="color: var(--danger); font-size: 0.8rem; font-weight: bold;">Failed</span>';
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

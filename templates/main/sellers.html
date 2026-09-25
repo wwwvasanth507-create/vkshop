@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Explore Sellers - VKshop{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem; text-align: center;">
+    <h2 style="font-family: var(--font-heading); font-size: 1.75rem; margin-bottom: 0.5rem; background: linear-gradient(135deg, var(--primary), var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Verified Sellers</h2>
+    <p style="color: var(--text-secondary); font-size: 0.9rem;">Browse and shop directly from local store owners and official brands.</p>
+</div>
+
+<!-- Search Bar for Sellers -->
+<div style="margin-bottom: 2rem;">
+    <div class="search-input-group" style="background-color: var(--bg-secondary);">
+        <input type="text" id="seller-search" placeholder="Search sellers by name or description..." style="padding: 0.75rem;" autocomplete="off">
+        <button type="button" style="padding: 0.75rem;"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </div>
+</div>
+
+<div id="sellers-container" style="display: flex; flex-direction: column; gap: 1.25rem;">
+    {% if sellers %}
+        {% for store in sellers %}
+        <div class="seller-card" data-name="{{ store.name|lower }}" data-desc="{{ (store.description or '')|lower }}" style="background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; align-items: center; gap: 1rem; transition: all var(--transition-normal); box-shadow: var(--shadow-sm); cursor: pointer;" onclick="window.location.href='{{ url_for('main.seller_detail', store_id=store.id) }}'">
+            <div style="width: 60px; height: 60px; border-radius: 50%; border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; background-color: #fff; flex-shrink: 0; overflow: hidden;">
+                {% if store.logo %}
+                    <img src="/static/uploads/store/{{ store.logo }}" style="width: 100%; height: 100%; object-fit: cover;" alt="{{ store.name }}">
+                {% else %}
+                    <i class="fa-solid fa-store" style="font-size: 1.5rem; color: var(--primary);"></i>
+                {% endif %}
+            </div>
+            <div style="flex: 1; min-width: 0;">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.25rem;">
+                    <h3 style="font-size: 1.1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 0.5rem; color: var(--text-primary);">{{ store.name }}</h3>
+                    <div style="display: flex; align-items: center; gap: 0.25rem; color: var(--accent); font-size: 0.85rem; font-weight: 700; flex-shrink: 0;">
+                        <i class="fa-solid fa-star"></i> {{ store.rating|round(1) }}
+                    </div>
+                </div>
+                <p style="color: var(--text-secondary); font-size: 0.82rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; margin-bottom: 0.5rem;">
+                    {{ store.description or 'No store description available. Browse to explore their premium selection of goods.' }}
+                </p>
+                <div style="margin-top: 0.5rem; display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Joined {{ store.created_at.strftime('%b %Y') }}</span>
+                    <span style="font-size: 0.8rem; font-weight: 600; color: var(--primary); display: inline-flex; align-items: center; gap: 0.25rem;">
+                        Visit Store <i class="fa-solid fa-chevron-right" style="font-size: 0.7rem;"></i>
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        
+        <div id="no-results-message" style="display: none; text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+            <i class="fa-solid fa-store-slash" style="font-size: 3rem; margin-bottom: 1rem; color: var(--border-color);"></i>
+            <p>No sellers match your search query.</p>
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+            <i class="fa-solid fa-store-slash" style="font-size: 3rem; margin-bottom: 1rem; color: var(--border-color);"></i>
+            <p>No registered sellers found at the moment. Check back later!</p>
+        </div>
+    {% endif %}
+</div>
+
+<script>
+document.getElementById('seller-search').addEventListener('input', function(e) {
+    const q = e.target.value.toLowerCase().trim();
+    const cards = document.querySelectorAll('.seller-card');
+    const noResults = document.getElementById('no-results-message');
+    let hasResults = false;
+    
+    cards.forEach(card => {
+        const name = card.getAttribute('data-name');
+        const desc = card.getAttribute('data-desc');
+        if (name.includes(q) || desc.includes(q)) {
+            card.style.display = 'flex';
+            hasResults = true;
+        } else {
+            card.style.display = 'none';
+        }
+    });
+    
+    if (noResults) {
+        noResults.style.display = hasResults ? 'none' : 'block';
+    }
+});
+
+// Hover micro-animations
+document.querySelectorAll('.seller-card').forEach(card => {
+    card.addEventListener('mouseenter', () => {
+        card.style.borderColor = 'var(--primary)';
+        card.style.transform = 'translateY(-2px)';
+        card.style.boxShadow = 'var(--shadow-md)';
+    });
+    card.addEventListener('mouseleave', () => {
+        card.style.borderColor = 'var(--border-color)';
+        card.style.transform = 'translateY(0)';
+        card.style.boxShadow = 'var(--shadow-sm)';
+    });
+});
+</script>
+{% endblock %}

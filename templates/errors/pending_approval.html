@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Account Verification Pending - VKshop{% endblock %}
+
+{% block content %}
+<div style="max-width: 600px; margin: 3rem auto; background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 3rem; text-align: center; box-shadow: var(--shadow-sm);">
+    {% if store.status == 'Pending' %}
+        <i class="fa-solid fa-clock-rotate-left" style="font-size: 5rem; color: var(--accent); margin-bottom: 1.5rem;"></i>
+        <h2 style="font-family: var(--font-heading); margin-bottom: 0.5rem; font-size: 2rem;">Verification Pending</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.05rem; line-height: 1.5;">
+            Your seller profile for <strong>"{{ store.name }}"</strong> has been created and is currently awaiting review by the platform administrators. 
+            Once approved, your dashboard and inventory management will be fully unlocked.
+        </p>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 2rem;">
+            Average approval time: 2-4 hours. Thank you for your patience!
+        </p>
+    {% elif store.status == 'Rejected' %}
+        <i class="fa-solid fa-circle-xmark" style="font-size: 5rem; color: var(--danger); margin-bottom: 1.5rem;"></i>
+        <h2 style="font-family: var(--font-heading); margin-bottom: 0.5rem; font-size: 2rem; color: var(--danger);">Application Rejected</h2>
+        <p style="color: var(--text-secondary); margin-bottom: 2rem; font-size: 1.05rem; line-height: 1.5;">
+            We regret to inform you that your request to activate the store <strong>"{{ store.name }}"</strong> has been declined by the system administrators. 
+            Please review your tax information and store descriptions.
+        </p>
+    {% endif %}
+    
+    <div style="display: flex; gap: 1rem; justify-content: center; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+        <a href="{{ url_for('seller.store_settings') }}" class="btn btn-secondary"><i class="fa-solid fa-pen-to-square"></i> Edit Store Settings</a>
+        <a href="{{ url_for('main.index') }}" class="btn btn-primary">Go to Homepage</a>
+    </div>
+</div>
+{% endblock %}

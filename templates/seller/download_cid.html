@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Print CID Orders - VKshop</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f3f4f6;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            padding: 30px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            font-size: 1.5rem;
+            margin: 0;
+            color: #111827;
+        }
+        .header .meta {
+            font-size: 0.85rem;
+            color: #4b5563;
+            text-align: right;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            border: 2px dashed #9ca3af;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #fafafa;
+            position: relative;
+            overflow: hidden;
+        }
+        .card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url('/static/logo.jpeg');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: 120px;
+            opacity: 0.05;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .card-header {
+            font-weight: bold;
+            font-size: 0.95rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            color: #2563eb;
+            display: flex;
+            justify-content: space-between;
+            position: relative;
+            z-index: 1;
+        }
+        .card-body {
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #374151;
+            position: relative;
+            z-index: 1;
+        }
+        .card-body strong {
+            color: #111827;
+        }
+        .field {
+            margin-bottom: 4px;
+        }
+        .print-btn {
+            background-color: #2563eb;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        .print-btn:hover {
+            background-color: #1d4ed8;
+        }
+        
+        @media print {
+            body {
+                background-color: #ffffff;
+                padding: 0;
+            }
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+                width: 210mm;
+                height: 297mm;
+                padding: 10mm;
+                margin: 0;
+            }
+            .print-btn {
+                display: none;
+            }
+            .filter-container {
+                display: none;
+            }
+            .card {
+                background-color: #ffffff !important;
+                border: 1px solid #000000 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header" style="display: flex; align-items: center; gap: 15px;">
+            <img src="/static/logo.jpeg" alt="VKshop Logo" style="height: 50px; width: auto; object-fit: contain; border-radius: 4px;">
+            <div>
+                <h1>CID Orders Delivery Sheets (4 per A4)</h1>
+                <p style="margin: 5px 0 0 0; font-size: 0.85rem; color: #6b7280;">Ready for printing and shipping placement.</p>
+            </div>
+            <div class="meta">
+                Downloaded Time: <strong>{{ now.strftime('%Y-%m-%d %H:%M:%S UTC') }}</strong><br>
+                Total Records: <strong>{{ orders|length }}</strong>
+            </div>
+        </div>
+
+        <div class="filter-container">
+            <form method="GET" style="display: flex; gap: 15px; align-items: center; margin-bottom: 20px; background: #f9fafb; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb;">
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label for="start_date" style="font-size: 0.85rem; font-weight: 600; color: #374151;">From Date (Confirmed):</label>
+                    <input type="date" id="start_date" name="start_date" value="{{ request.args.get('start_date', '') }}" style="padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 4px;">
+                </div>
+                <div style="display: flex; flex-direction: column; gap: 5px;">
+                    <label for="end_date" style="font-size: 0.85rem; font-weight: 600; color: #374151;">To Date (Confirmed):</label>
+                    <input type="date" id="end_date" name="end_date" value="{{ request.args.get('end_date', '') }}" style="padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 4px;">
+                </div>
+                <div style="display: flex; align-items: flex-end; margin-top: 22px;">
+                    <button type="submit" style="background-color: #4b5563; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.85rem;">Filter</button>
+                    <a href="{{ url_for('seller.download_cid') }}" style="margin-left: 10px; color: #2563eb; text-decoration: none; font-size: 0.85rem; font-weight: 600; display: inline-flex; align-items: center; height: 100%;">Reset</a>
+                </div>
+            </form>
+        </div>
+
+        <button class="print-btn" onclick="window.print()">
+            Print / Save PDF (A4 Layout)
+        </button>
+
+        {% for chunk in orders|batch(4) %}
+        <div class="grid">
+            {% for o in chunk %}
+            <div class="card">
+                <div class="card-header">
+                    <span>Order #{{ o.order_number }}</span>
+                    <span style="font-size: 0.75rem; color: #4b5563;">Date: {{ o.updated_at.strftime('%Y-%m-%d') }}</span>
+                </div>
+                <div class="card-body">
+                    {% if o.address %}
+                        <div class="field"><strong>Customer:</strong> {{ o.address.fullName }}</div>
+                        <div class="field"><strong>Door No:</strong> {{ o.address.door_no or '-' }}</div>
+                        <div class="field"><strong>Street:</strong> {{ o.address.street or '-' }}</div>
+                        <div class="field"><strong>Village/City:</strong> {{ o.address.village_city or o.address.city or '-' }}</div>
+                        <div class="field"><strong>Post name:</strong> {{ o.address.post_name or '-' }}</div>
+                        <div class="field"><strong>Taluk name:</strong> {{ o.address.taluk_name or '-' }}</div>
+                        <div class="field"><strong>District:</strong> {{ o.address.district or '-' }}</div>
+                        <div class="field"><strong>State:</strong> {{ o.address.state or '-' }}</div>
+                        <div class="field"><strong>Country:</strong> {{ o.address.country or '-' }}</div>
+                        <div class="field"><strong>Pin code:</strong> {{ o.address.postalCode or '-' }}</div>
+                        <div class="field"><strong>Landmark:</strong> {{ o.address.landmark or o.address.addressLine2 or '-' }}</div>
+                        <div class="field"><strong>Contact Number:</strong> {{ o.address.contact_number or o.address.phone or '-' }}</div>
+                        <!-- Product Codes Section -->
+                        <div class="field" style="margin-top: 6px; padding-top: 6px; border-top: 1px dashed #ccc;">
+                            <strong>Product Codes:</strong>
+                            {% for item in o.items %}
+                                <span style="display: inline-block; background: #e8f0fe; padding: 0 5px; border-radius: 3px; font-family: monospace; font-size: 0.75rem; margin: 1px 0;">
+                                    {{ item.product_name }} — SKU: {{ item.product.sku if item.product else 'N/A' }}
+                                </span><br>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div style="color: red; font-weight: bold;">No shipping address details found for this order.</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if not loop.last %}
+            <div style="page-break-after: always; height: 10px;"></div>
+        {% endif %}
+        {% endfor %}
+    </div>
+
+</body>
+</html>
