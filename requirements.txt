@@ -9,7 +9,6 @@ pillow
 reportlab
 openpyxl
 waitress
-psycopg2-binary
 redis
 flask-session
 flask-caching

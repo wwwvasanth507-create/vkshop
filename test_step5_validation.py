@@ -55,12 +55,12 @@ class TestStep5ProductionValidation(unittest.TestCase):
         self.assertEqual(Config.MAX_CONTENT_LENGTH, 16 * 1024 * 1024)
 
     def test_requirements_file_has_production_deps(self):
-        """Verify requirements.txt contains gunicorn, psycopg2-binary, pillow, minio."""
+        """Verify requirements.txt contains gunicorn, psycopg, pillow, minio."""
         req_path = os.path.join(os.path.dirname(__file__), 'requirements.txt')
         with open(req_path, 'r', encoding='utf-8') as f:
             reqs = f.read().lower()
 
-        required_packages = ['gunicorn', 'psycopg2-binary', 'pillow', 'minio', 'flask-socketio']
+        required_packages = ['gunicorn', 'psycopg', 'pillow', 'minio', 'flask-socketio']
         for pkg in required_packages:
             self.assertIn(pkg, reqs)
 

@@ -27,8 +27,11 @@ class Config:
     
     # Check for DATABASE_URL or build PostgreSQL URI
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    if SQLALCHEMY_DATABASE_URI and SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
-        SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql://', 1)
+    if SQLALCHEMY_DATABASE_URI:
+        if SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
+            SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgres://', 'postgresql+psycopg://', 1)
+        elif SQLALCHEMY_DATABASE_URI.startswith('postgresql://') and not SQLALCHEMY_DATABASE_URI.startswith('postgresql+'):
+            SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgresql://', 'postgresql+psycopg://', 1)
         
     if not SQLALCHEMY_DATABASE_URI:
         db_user = os.environ.get('POSTGRES_USER')
@@ -37,7 +40,7 @@ class Config:
         db_port = os.environ.get('POSTGRES_PORT')
         db_name = os.environ.get('POSTGRES_DB')
         if all([db_user, db_password, db_host, db_port, db_name]):
-            SQLALCHEMY_DATABASE_URI = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+            SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         else:
             if ENV == 'production':
                 raise RuntimeError("Production mode requires PostgreSQL. Please set DATABASE_URL or POSTGRES_* environment variables.")

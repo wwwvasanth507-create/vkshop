@@ -15,7 +15,7 @@ class TestRenderProductionConfig(unittest.TestCase):
     """Test suite for STEP 4 Render production deployment configuration requirements."""
 
     def test_postgres_url_normalization(self):
-        """Verify postgres:// is converted to postgresql:// in database URI."""
+        """Verify postgres:// is converted to postgresql+psycopg:// in database URI."""
         with patch.dict(os.environ, {
             'DATABASE_URL': 'postgres://user:pass@ep-host.render.com/vdb',
             'FLASK_ENV': 'production'
@@ -25,7 +25,7 @@ class TestRenderProductionConfig(unittest.TestCase):
             reload(config)
             self.assertEqual(
                 config.Config.SQLALCHEMY_DATABASE_URI,
-                'postgresql://user:pass@ep-host.render.com/vdb'
+                'postgresql+psycopg://user:pass@ep-host.render.com/vdb'
             )
 
     def test_missing_postgres_in_production_raises_error(self):

@@ -8,7 +8,10 @@ db = SQLAlchemy()
 # Runs outside application context, making it extremely thread-safe
 @event.listens_for(Engine, "connect")
 def set_sqlite_pragma(dbapi_connection, connection_record):
-    # Enable WAL mode and pool tuning for SQLite connections
+    # Enable WAL mode and pool tuning ONLY for SQLite connections
+    dbapi_type = type(dbapi_connection).__module__
+    if 'sqlite' not in dbapi_type.lower():
+        return
     try:
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA journal_mode=WAL")
@@ -19,8 +22,11 @@ def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor.execute("PRAGMA busy_timeout=15000")  # 15s busy timeout
         cursor.close()
     except Exception:
-        # Ignore for other databases or during migrations
-        pass
+        if hasattr(dbapi_connection, 'rollback'):
+            try:
+                dbapi_connection.rollback()
+            except Exception:
+                pass
 
 import sqlalchemy as sa
 
@@ -83,11 +89,20 @@ def run_adaptive_migrations(app):
         dialect = engine.dialect
         
         # Step 1: Create any entirely missing tables
-        db.create_all()
+        try:
+            db.create_all()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"[MIGRATE] db.create_all() failed: {e}")
+            raise
         
         # Step 2: Get tables that actually exist in the database
-        inspector = sa.inspect(engine)
-        existing_tables = set(inspector.get_table_names())
+        try:
+            inspector = sa.inspect(engine)
+            existing_tables = set(inspector.get_table_names())
+        except Exception as e:
+            logger.error(f"[MIGRATE] Failed to inspect database table schema: {e}")
+            return
 
         added = 0
         errors = 0
@@ -118,32 +133,53 @@ def run_adaptive_migrations(app):
                     logger.info(f"[MIGRATE] Added column: {table_name}.{col_name} ({sql_type})")
                     added += 1
                 except Exception as e:
-                    logger.warning(f"[MIGRATE] Could not add {table_name}.{col_name}: {e}")
+                    logger.warning(f"[MIGRATE] Could not add {table_name}.{col_name} via '{alter_sql}': {e}")
                     errors += 1
 
         if added > 0:
             logger.info(f"[MIGRATE] Adaptive migration complete: {added} column(s) added, {errors} error(s).")
 
 def init_db(app):
+    import logging
+    logger = logging.getLogger('database')
+
     db.init_app(app)
     with app.app_context():
-        # Step 1: Adaptive schema migration — adds any new columns without data loss
-        run_adaptive_migrations(app)
-
         dialect_name = db.engine.dialect.name
+        driver_name = db.engine.dialect.driver
+        has_db_uri = bool(app.config.get('SQLALCHEMY_DATABASE_URI'))
+
+        logger.info(f"[DB INIT] Initializing database (Dialect: {dialect_name}, Driver: {driver_name}, URI Configured: {has_db_uri})")
+
+        # Step 0: Test connectivity and clean initial transaction state
+        try:
+            db.session.execute(sa.text("SELECT 1"))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"[DB INIT] Connectivity check failed for {dialect_name} ({driver_name}): {e}")
+            raise RuntimeError(f"Database connection check failed for {dialect_name} driver {driver_name}: {e}") from e
+
+        # Step 1: Adaptive schema migration — adds any new columns without data loss
+        try:
+            run_adaptive_migrations(app)
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"[DB INIT] Adaptive schema migration failed: {e}")
+            raise
 
         # Step 2: Explicit one-time migrations for legacy columns (kept for safety)
         try:
             db.session.execute(db.text("ALTER TABLE brands ADD COLUMN category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL;"))
             db.session.commit()
-        except Exception:
+        except Exception as e:
             db.session.rollback()
 
         try:
             timestamp_type = "DATETIME" if dialect_name == 'sqlite' else "TIMESTAMP"
             db.session.execute(db.text(f"ALTER TABLE banners ADD COLUMN expires_at {timestamp_type};"))
             db.session.commit()
-        except Exception:
+        except Exception as e:
             db.session.rollback()
 
         # Step 3: Fast physical database performance indexes
@@ -168,6 +204,7 @@ def init_db(app):
                 db.session.commit()
             except Exception:
                 db.session.rollback()
+
 
 
 
