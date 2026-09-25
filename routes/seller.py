@@ -101,22 +101,30 @@ def dashboard():
     start_of_week = today - timedelta(days=today.weekday()) - timedelta(weeks=week_offset)  # Monday
     week_sales_labels = []
     week_sales_data = []
-    week_day_names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-    for i in range(7):
-        day_start = start_of_week + timedelta(days=i)
-        day_end = day_start + timedelta(days=1)
-        day_sales = db.session.query(db.func.coalesce(db.func.sum(OrderItem.total_price), 0)).join(
-            Order, OrderItem.order_id == Order.id
-        ).join(
-            Product, OrderItem.product_id == Product.id
-        ).filter(
-            Product.seller_id == store.id,
-            Order.created_at >= day_start,
-            Order.created_at < day_end,
-            Order.status.in_(['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered'])
-        ).scalar()
-        week_sales_labels.append(week_day_names[i])
-        week_sales_data.append(float(day_sales))
+    start_of_week_start = datetime(start_of_week.year, start_of_week.month, start_of_week.day)
+    end_of_week = start_of_week_start + timedelta(days=7)
+    
+    weekly_order_items = db.session.query(
+        Order.created_at, OrderItem.total_price
+    ).join(
+        OrderItem, OrderItem.order_id == Order.id
+    ).join(
+        Product, OrderItem.product_id == Product.id
+    ).filter(
+        Product.seller_id == store.id,
+        Order.created_at >= start_of_week_start,
+        Order.created_at < end_of_week,
+        Order.status.in_(['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered'])
+    ).all()
+
+    day_totals = [0.0] * 7
+    for order_date, item_price in weekly_order_items:
+        day_idx = (order_date - start_of_week_start).days
+        if 0 <= day_idx < 7:
+            day_totals[day_idx] += float(item_price or 0.0)
+
+    week_sales_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    week_sales_data = [round(amt, 2) for amt in day_totals]
     
     total_weekly_sales = sum(week_sales_data)
     

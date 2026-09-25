@@ -69,11 +69,15 @@ def dashboard():
     users_count = User.query.count()
     sellers_count = User.query.filter_by(role='seller').count()
     products_count = Product.query.count()
-    orders = Order.query.all()
+
+    valid_statuses = ['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered']
     
-    # Calculate Sales Volume using verified/confirmed orders only
-    sales_volume = sum(o.grand_total for o in orders if o.status in ['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered'])
-    orders_count_count = len([o for o in orders if o.status in ['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered']])
+    # Calculate Sales Volume using SQL aggregation without loading all Order objects
+    sales_vol = db.session.query(db.func.coalesce(db.func.sum(Order.grand_total), 0.0)).filter(
+        Order.status.in_(valid_statuses)
+    ).scalar()
+    sales_volume = float(sales_vol or 0.0)
+    orders_count_count = Order.query.filter(Order.status.in_(valid_statuses)).count()
     
     # Active tickets, returns
     pending_returns = ReturnRequest.query.filter_by(status='Pending').all()
@@ -82,7 +86,6 @@ def dashboard():
     
     # Day-wise and Month-wise sales calculations
     import calendar
-    from collections import defaultdict
     
     now = datetime.utcnow()
     current_year = now.year
@@ -94,30 +97,32 @@ def dashboard():
     else:
         end_of_month = datetime(current_year, current_month + 1, 1)
         
-    confirmed_orders_month = Order.query.filter(
-        Order.status.in_(['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered']),
+    confirmed_orders_month = Order.query.with_entities(Order.created_at, Order.grand_total).filter(
+        Order.status.in_(valid_statuses),
         Order.created_at >= start_of_month,
         Order.created_at < end_of_month
     ).all()
     
     num_days = calendar.monthrange(current_year, current_month)[1]
     day_sales = {day: 0.0 for day in range(1, num_days + 1)}
-    for o in confirmed_orders_month:
-        day_sales[o.created_at.day] += o.grand_total
+    for created_at, grand_total in confirmed_orders_month:
+        if created_at:
+            day_sales[created_at.day] += (grand_total or 0.0)
         
     day_labels = [f"{day}" for day in range(1, num_days + 1)]
     day_data = [day_sales[day] for day in range(1, num_days + 1)]
     current_month_name = calendar.month_name[current_month]
     
     month_sales = {m: 0.0 for m in range(1, 13)}
-    confirmed_orders_year = Order.query.filter(
-        Order.status.in_(['Confirmed', 'Packed', 'Shipped', 'Out For Delivery', 'Delivered']),
+    confirmed_orders_year = Order.query.with_entities(Order.created_at, Order.grand_total).filter(
+        Order.status.in_(valid_statuses),
         Order.created_at >= datetime(current_year, 1, 1),
         Order.created_at < datetime(current_year + 1, 1, 1)
     ).all()
     
-    for o in confirmed_orders_year:
-        month_sales[o.created_at.month] += o.grand_total
+    for created_at, grand_total in confirmed_orders_year:
+        if created_at:
+            month_sales[created_at.month] += (grand_total or 0.0)
         
     month_labels = [calendar.month_abbr[m] for m in range(1, 13)]
     month_data = [month_sales[m] for m in range(1, 13)]
@@ -127,7 +132,7 @@ def dashboard():
     pending_commission_payments = CommissionPayment.query.filter(
         CommissionPayment.status.in_(['In progress', 'Waiting for Verification'])
     ).all()
-    all_commission_payments = CommissionPayment.query.order_by(CommissionPayment.created_at.desc()).all()
+    all_commission_payments = CommissionPayment.query.order_by(CommissionPayment.created_at.desc()).limit(100).all()
     complaints = Complaint.query.filter_by(status='Pending').all()
     
     categories = Category.query.all()

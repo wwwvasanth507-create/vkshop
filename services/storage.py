@@ -322,9 +322,10 @@ storage_service = StorageService()
 
 def normalize_storage_key(value: Optional[str]) -> Optional[str]:
     """
-    Idempotently convert legacy filesystem paths, absolute paths, and wrapped keys
+    Idempotently convert legacy filesystem paths, absolute paths, full R2 URLs, and wrapped keys
     into clean R2 object keys.
     Examples:
+        https://pub-xxx.r2.dev/private/seller-documents/s1/a.webp -> private/seller-documents/s1/a.webp
         /static/uploads/users/private/seller-documents/seller1/a.webp -> private/seller-documents/seller1/a.webp
         static/uploads/products/a.webp -> products/a.webp
         users/private/seller-documents/seller1/a.webp -> private/seller-documents/seller1/a.webp
@@ -332,8 +333,26 @@ def normalize_storage_key(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
     s = str(value).strip().replace('\\', '/')
-    if not s or s.startswith(('http://', 'https://')):
-        return value
+    if not s:
+        return None
+
+    # Handle full HTTP/HTTPS URLs
+    if s.startswith(('http://', 'https://')):
+        pub_base = ""
+        try:
+            pub_base = current_app.config.get('STORAGE_PUBLIC_URL', '')
+        except Exception:
+            pub_base = os.environ.get('STORAGE_PUBLIC_URL', '')
+
+        is_r2_domain = '.r2.dev' in s or (pub_base and pub_base in s)
+        has_r2_key_prefix = any(p in s for p in ['/private/', '/products/', '/categories/', '/stores/', '/banners/', '/admin/', '/users/'])
+
+        if is_r2_domain or has_r2_key_prefix:
+            from urllib.parse import urlparse
+            path = urlparse(s).path
+            s = path.lstrip('/')
+        else:
+            return s  # Keep external non-R2 URLs as-is
 
     # Remove Windows drive letters e.g. C:
     s = re.sub(r'^[a-zA-Z]:', '', s)
@@ -353,26 +372,35 @@ def normalize_storage_key(value: Optional[str]) -> Optional[str]:
     parts = [p for p in s.split('/') if p and p not in ('.', '..')]
     return '/'.join(parts) if parts else None
 
+
 def resolve_image_url(value: Optional[str], default_category: Optional[str] = None, private: bool = False) -> str:
     """
     Authoritative resolution of stored keys/paths to browser-accessible URLs.
     Supports public R2 URLs, authenticated private routes, complete HTTPS links, and fallback defaults.
+    Ensures private objects NEVER leak as public R2 CDN links.
     """
     if not value:
         return '/static/uploads/placeholder.jpg'
 
     s = str(value).strip()
-    if s.startswith(('http://', 'https://')):
-        return s
+    if not s:
+        return '/static/uploads/placeholder.jpg'
 
     key = normalize_storage_key(s)
     if not key:
         return '/static/uploads/placeholder.jpg'
 
-    # Route private documents through authenticated Flask endpoint
-    if private or key.startswith('private/'):
+    # If key is an external non-R2 HTTP(S) URL, return it
+    if key.startswith(('http://', 'https://')):
+        return key
+
+    # Route ALL private documents through authenticated Flask endpoint
+    if private or key.startswith('private/') or '/private/' in key:
         if not key.startswith('private/'):
-            key = f"private/{key}"
+            if 'private/' in key:
+                key = key[key.find('private/'):]
+            else:
+                key = f"private/{key}"
         return f"/private/file/{key}"
 
     # Legacy filename reference e.g. img_1_foo.jpg without folder

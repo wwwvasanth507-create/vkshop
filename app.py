@@ -213,8 +213,11 @@ def create_app():
             
         if hasattr(g, 'start_time'):
             duration_ms = int((time.time() - g.start_time) * 1000)
-            if duration_ms > 2000:
-                app.logger.warning(f"[SLOW_REQUEST] method={request.method} path={request.path} status={response.status_code} duration={duration_ms}ms")
+            pid = os.getpid()
+            if duration_ms > 5000:
+                app.logger.error(f"[CRITICAL_SLOW_REQUEST] method={request.method} path={request.path} duration_ms={duration_ms} status={response.status_code} pid={pid}")
+            elif duration_ms > 1000:
+                app.logger.warning(f"[SLOW_REQUEST] method={request.method} path={request.path} duration_ms={duration_ms} status={response.status_code} pid={pid}")
         return response
 
     @app.teardown_appcontext
@@ -309,15 +312,26 @@ def create_app():
             file_data = response.read()
             response.close()
             response.release_conn()
-            return send_file(
+            mime = stat.content_type if stat and hasattr(stat, 'content_type') and stat.content_type else 'image/webp'
+            resp = send_file(
                 io.BytesIO(file_data),
-                mimetype=stat.content_type or 'application/octet-stream',
+                mimetype=mime,
                 as_attachment=False
             )
+            resp.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+            resp.headers['Pragma'] = 'no-cache'
+            resp.headers['Expires'] = '0'
+            resp.headers['X-Content-Type-Options'] = 'nosniff'
+            if stat and hasattr(stat, 'size') and stat.size:
+                resp.headers['Content-Length'] = str(stat.size)
+            return resp
         except Exception as err:
             local_path = os.path.join(app.config['UPLOAD_FOLDER'], clean_key.replace('/', os.sep))
             if os.path.exists(local_path):
-                return send_file(local_path)
+                resp = send_file(local_path)
+                resp.headers['Cache-Control'] = 'private, no-cache, no-store, must-revalidate'
+                resp.headers['X-Content-Type-Options'] = 'nosniff'
+                return resp
             app.logger.warning(f"[PRIVATE FILE 404] Could not serve '{clean_key}': {err}")
             abort(404)
 

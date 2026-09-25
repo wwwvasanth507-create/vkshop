@@ -135,9 +135,8 @@ class SellerPdfService:
             if not key_or_path:
                 return Paragraph(f"{label_name}: Not Uploaded", normal_style)
 
-            clean_key = str(key_or_path).replace('/static/uploads/', '').replace('static/uploads/', '')
-            
-            from services.storage import storage_service
+            from services.storage import normalize_storage_key, storage_service
+            clean_key = normalize_storage_key(key_or_path) or str(key_or_path)
             if storage_service.is_available():
                 try:
                     response, stat = storage_service.get_file(clean_key)

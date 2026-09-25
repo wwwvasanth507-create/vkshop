@@ -11,18 +11,19 @@ def get_interested_products(user_id=None, limit=5):
     if not user_id:
         return Product.query.filter_by(is_active=True).order_by((Product.views + Product.clicks).desc()).limit(limit).all()
     
+    from sqlalchemy.orm import joinedload
     from models import Wishlist, CartItem, Order, OrderItem, RecentlyViewed, SearchHistory
     
     # 1. Fetch user's wishlist categories
-    wishlist_items = Wishlist.query.filter_by(user_id=user_id).all()
+    wishlist_items = Wishlist.query.options(joinedload(Wishlist.product)).filter_by(user_id=user_id).all()
     wishlist_cat_ids = [item.product.category_id for item in wishlist_items if item.product and item.product.category_id]
     
     # 2. Fetch user's cart categories
-    cart_items = CartItem.query.filter_by(user_id=user_id).all()
+    cart_items = CartItem.query.options(joinedload(CartItem.product)).filter_by(user_id=user_id).all()
     cart_cat_ids = [item.product.category_id for item in cart_items if item.product and item.product.category_id]
     
     # 3. Fetch user's order categories
-    orders = Order.query.filter_by(user_id=user_id).filter(Order.status != 'Cancelled').all()
+    orders = Order.query.options(joinedload(Order.items).joinedload(OrderItem.product)).filter_by(user_id=user_id).filter(Order.status != 'Cancelled').all()
     order_cat_ids = []
     for o in orders:
         for item in o.items:
@@ -30,7 +31,7 @@ def get_interested_products(user_id=None, limit=5):
                 order_cat_ids.append(item.product.category_id)
                 
     # 4. Fetch user's recently viewed categories
-    recent_views = RecentlyViewed.query.filter_by(user_id=user_id).order_by(RecentlyViewed.viewed_at.desc()).limit(20).all()
+    recent_views = RecentlyViewed.query.options(joinedload(RecentlyViewed.product)).filter_by(user_id=user_id).order_by(RecentlyViewed.viewed_at.desc()).limit(20).all()
     recent_cat_ids = [rv.product.category_id for rv in recent_views if rv.product and rv.product.category_id]
     
     # 5. Fetch categories matching search history

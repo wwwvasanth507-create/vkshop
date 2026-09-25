@@ -62,7 +62,7 @@ class Config:
             'pool_size': int(os.environ.get('DATABASE_POOL_SIZE', 5)),
             'max_overflow': int(os.environ.get('DATABASE_MAX_OVERFLOW', 10)),
             'pool_recycle': int(os.environ.get('DATABASE_POOL_RECYCLE', 300)),
-            'pool_timeout': int(os.environ.get('DATABASE_POOL_TIMEOUT', 30)),
+            'pool_timeout': int(os.environ.get('DATABASE_POOL_TIMEOUT', 15)),
             'pool_pre_ping': True
         }
     

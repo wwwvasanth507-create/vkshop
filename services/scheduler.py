@@ -11,6 +11,8 @@ scheduler = BackgroundScheduler()
 
 import redis
 
+_scheduler_lock_file = None
+
 def get_redis_client():
     from flask import current_app
     redis_url = current_app.config.get('REDIS_URL')
@@ -47,11 +49,15 @@ def auto_cancel_pending_orders_job(app):
         try:
             from models import Order, OrderItem, Product, ProductVariant, Notification
             from database import db
+            from sqlalchemy.orm import joinedload
 
             cutoff_time = datetime.utcnow() - timedelta(days=3)
 
-            # Find orders stuck in Pending for > 15 minutes
-            pending_orders = Order.query.filter(
+            # Find orders stuck in Pending for > 3 days (72h)
+            pending_orders = Order.query.options(
+                joinedload(Order.items).joinedload(OrderItem.variant),
+                joinedload(Order.items).joinedload(OrderItem.product)
+            ).filter(
                 Order.status == 'Pending',
                 Order.created_at < cutoff_time
             ).all()
@@ -100,10 +106,13 @@ def check_low_stock_job(app):
         try:
             from models import Product, ProductVariant, Notification, StoreProfile
             from database import db
+            from sqlalchemy.orm import joinedload
 
             THRESHOLD = 3
 
-            low_stock_products = Product.query.filter(Product.is_active == True).all()
+            low_stock_products = Product.query.options(
+                joinedload(Product.variants)
+            ).filter(Product.is_active == True).all()
             for prod in low_stock_products:
                 seller = StoreProfile.query.get(prod.seller_id)
                 if not seller:
@@ -238,6 +247,8 @@ def init_scheduler(app):
     Starts the background scheduler thread with the Flask application context.
     Safely prevents duplicate scheduler execution across multi-worker Gunicorn processes.
     """
+    global _scheduler_lock_file
+
     if os.environ.get('DISABLE_SCHEDULER', 'False').lower() in ('true', '1', 't'):
         logger.info("Scheduler disabled via DISABLE_SCHEDULER environment variable.")
         return
@@ -251,12 +262,18 @@ def init_scheduler(app):
     try:
         lock_file_path = os.path.join(app.config.get('BASE_DIR', '.'), 'database', 'scheduler_active.pid')
         os.makedirs(os.path.dirname(lock_file_path), exist_ok=True)
+        f = open(lock_file_path, 'a+')
         if os.name != 'nt':
             import fcntl
-            f = open(lock_file_path, 'w')
             fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except (ImportError, IOError, OSError):
-        logger.info("Scheduler already active in another worker process. Skipping duplicate startup.")
+        else:
+            import msvcrt
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        # Keep handle stored in global variable to prevent lock release on function exit
+        _scheduler_lock_file = f
+    except (ImportError, IOError, OSError, BlockingIOError) as e:
+        logger.info(f"Scheduler already active in another worker process ({e}). Skipping duplicate startup.")
         return
 
     if not scheduler.running:

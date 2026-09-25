@@ -3,11 +3,23 @@ let socket = null;
 
 function initSocketIO() {
     if (typeof io !== 'undefined') {
-        socket = io();
-        
-        socket.on('connect', function() {
-            console.log('Socket.IO connected');
-        });
+        try {
+            socket = io({
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 5000,
+                reconnectionDelayMax: 15000,
+                timeout: 10000
+            });
+            
+            socket.on('connect', function() {
+                console.log('Socket.IO connected');
+            });
+
+            socket.on('connect_error', function(err) {
+                console.warn('Socket.IO connection warning:', err.message);
+            });
         
         socket.on('notification', function(data) {
             // Show notification toast
@@ -51,6 +63,9 @@ function initSocketIO() {
         socket.on('disconnect', function() {
             console.log('Socket.IO disconnected');
         });
+        } catch (err) {
+            console.warn('Socket.IO initialization skipped:', err);
+        }
     }
 }
 
