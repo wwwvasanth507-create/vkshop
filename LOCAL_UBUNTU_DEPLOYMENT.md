@@ -1,38 +1,33 @@
-# VKShop — Local Ubuntu Server Production Deployment Guide
+# VKShop — Local Ubuntu Server Complete Setup & Deployment Guide
 
-This guide provides step-by-step instructions for deploying **VKShop** on a **Local Ubuntu Server** (Ubuntu 22.04 LTS or 24.04 LTS) using **PostgreSQL** as the exclusive relational database, **Redis** for distributed sessions & caching, **Gunicorn** managed by **Systemd**, and **Nginx** as the high-performance reverse proxy and static media server.
+This guide provides inch-by-inch, step-by-step terminal commands for deploying **VKShop** from the GitHub repository (`https://github.com/wwwvasanth507-create/vkshop.git`) onto a **Local Ubuntu Server** (Ubuntu 22.04 LTS or 24.04 LTS).
+
+The setup includes:
+- **Git Repository Pull / Clone**
+- **PostgreSQL 16** (Exclusive Relational Database Engine)
+- **Redis 7** (Distributed Session & Rate-Limiting Engine)
+- **Gunicorn WSGI Server** (Managed by Systemd service `vkshop.service`)
+- **Nginx** (High-Performance Reverse Proxy & Media Server)
+- **Cloudflare Tunnel** (Auto-restarting Systemd service `cloudflared.service` for public HTTPS access without open router ports)
 
 ---
 
-## 🏗️ Architecture Overview (Local Ubuntu Server)
+## ⚡ Quick One-Command Automated Setup
 
-```
-                            Client Browser / Mobile App
-                                         │
-                                         ▼
-                            Nginx (Port 80 / 443 SSL)
-                                         │
-                 ┌───────────────────────┴───────────────────────┐
-                 │                                               │
-   Direct Static Asset Serving                      Reverse Proxy (`http://127.0.0.1:5000`)
-   `/static/` & `/static/uploads/`                               │
-                 │                                               ▼
-                 │                               Gunicorn WSGI Application Server
-                 │                               (Systemd Service: `vkshop.service`)
-                 │                                               │
-                 └───────────────────────┬───────────────────────┘
-                                         │
-                    ┌────────────────────┼────────────────────┐
-                    │                    │                    │
-           PostgreSQL 16 Database   Local Persistent Storage   Redis 7 Server
-           (Exclusive Source of Truth) (`/static/uploads/`)    (Sessions, Cache & Locks)
+You can run the automated setup script included in the repository:
+
+```bash
+cd /var/www/vkshop
+bash setup_ubuntu_server.sh
 ```
 
 ---
 
-## 🛠️ Step 1: System Dependencies Installation
+## 🛠️ Inch-by-Inch Step-by-Step Installation Guide
 
-Update system packages and install required server components:
+### Step 1: Install Package Dependencies
+
+Update apt repositories and install all required system packages:
 
 ```bash
 sudo apt update && sudo apt upgrade -y
@@ -40,144 +35,145 @@ sudo apt install -y python3 python3-pip python3-venv \
     postgresql postgresql-contrib \
     redis-server nginx \
     libpq-dev libjpeg-dev zlib1g-dev \
-    git curl build-essential
+    git curl build-essential wget
 ```
 
 ---
 
-## 🛢️ Step 2: PostgreSQL Database Configuration
+### Step 2: Clone or Pull Repository Code
 
-1. Access PostgreSQL shell:
-   ```bash
-   sudo -u postgres psql
-   ```
-
-2. Create dedicated database user and database:
-   ```sql
-   CREATE USER vkshop_user WITH PASSWORD 'vkshop_secure_password';
-   CREATE DATABASE ecommerce OWNER vkshop_user;
-   GRANT ALL PRIVILEGES ON DATABASE ecommerce TO vkshop_user;
-   \q
-   ```
-
-3. Enable PostgreSQL service:
-   ```bash
-   sudo systemctl enable --now postgresql
-   ```
-
----
-
-## ⚡ Step 3: Redis Server Setup
-
-1. Start and enable Redis service:
-   ```bash
-   sudo systemctl enable --now redis-server
-   ```
-
-2. Test Redis connection:
-   ```bash
-   redis-cli ping
-   # Expected output: PONG
-   ```
-
----
-
-## 📂 Step 4: Application Installation & Virtual Environment
-
-1. Prepare project deployment directory:
-   ```bash
-   sudo mkdir -p /var/www/vkshop
-   sudo chown -R $USER:$USER /var/www/vkshop
-   cd /var/www/vkshop
-   ```
-
-2. Clone repository or copy project files into `/var/www/vkshop`.
-
-3. Create Python virtual environment and install dependencies:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   pip install --upgrade pip setuptools wheel
-   pip install -r requirements.txt
-   ```
-
-4. Configure environment variables:
-   ```bash
-   cp .env.example .env
-   nano .env
-   ```
-   Set `SECRET_KEY`, `DATABASE_URL=postgresql+psycopg://vkshop_user:vkshop_secure_password@127.0.0.1:5432/ecommerce`, and `REDIS_URL=redis://127.0.0.1:6379/0`.
-
----
-
-## ⚙️ Step 5: Systemd Service Configuration (Gunicorn)
-
-1. Copy service file to Systemd directory:
-   ```bash
-   sudo cp vkshop.service /etc/systemd/system/vkshop.service
-   ```
-
-2. Reload Systemd and start application service:
-   ```bash
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now vkshop
-   ```
-
-3. Check service status:
-   ```bash
-   sudo systemctl status vkshop
-   ```
-
----
-
-## 🌐 Step 6: Nginx Reverse Proxy Setup
-
-1. Copy Nginx configuration file:
-   ```bash
-   sudo cp nginx.conf /etc/nginx/sites-available/vkshop
-   ```
-
-2. Enable site configuration and remove default page:
-   ```bash
-   sudo ln -sf /etc/nginx/sites-available/vkshop /etc/nginx/sites-enabled/
-   sudo rm -f /etc/nginx/sites-enabled/default
-   ```
-
-3. Test configuration and reload Nginx:
-   ```bash
-   sudo nginx -t
-   sudo systemctl reload nginx
-   ```
-
----
-
-## 🐳 Optional Step 7: Containerized Deployment via Docker Compose
-
-If preferred, VKShop can be deployed via Docker Compose with a single command:
+Clone repository from GitHub to `/var/www/vkshop`:
 
 ```bash
-docker compose up -d --build
-```
+# Create directory and set permissions
+sudo mkdir -p /var/www/vkshop
+sudo chown -R $USER:$USER /var/www/vkshop
 
-Services started:
-- `vkshop_web`: Gunicorn Web Server (Port 5000)
-- `vkshop_postgres`: PostgreSQL 16 (Port 5432)
-- `vkshop_redis`: Redis 7 (Port 6379)
+# Clone repository from GitHub
+git clone https://github.com/wwwvasanth507-create/vkshop.git /var/www/vkshop
+
+# Navigate to project directory
+cd /var/www/vkshop
+
+# (Optional) If repository is already cloned, pull latest code:
+git pull origin main
+```
 
 ---
 
-## 🏥 Step 8: Health & Verification Checks
+### Step 3: Setup PostgreSQL Database & User
 
-1. **Liveness Check**:
-   ```bash
-   curl -i http://127.0.0.1:5000/live
-   # Response: HTTP 200 OK {"status":"healthy"}
-   ```
+Start PostgreSQL service and create database + user:
 
-2. **Readiness Probe**:
-   ```bash
-   curl -i http://127.0.0.1:5000/ready
-   # Response: HTTP 200 OK {"database":"connected","redis":"connected","status":"ok"}
-   ```
+```bash
+# Enable & start PostgreSQL service
+sudo systemctl enable --now postgresql
 
-3. **Database Migration Audit**: Database tables and adaptive schema migrations run automatically on startup via `init_db(app)`.
+# Create database user with password
+sudo -u postgres psql -c "CREATE USER vkshop_user WITH PASSWORD 'vkshop_secure_password';"
+
+# Create database owned by user
+sudo -u postgres psql -c "CREATE DATABASE ecommerce OWNER vkshop_user;"
+
+# Grant privileges
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE ecommerce TO vkshop_user;"
+```
+
+---
+
+### Step 4: Setup Redis Server
+
+Enable and verify Redis service:
+
+```bash
+# Enable & start Redis server
+sudo systemctl enable --now redis-server
+
+# Verify Redis connection
+redis-cli ping
+# Expected output: PONG
+```
+
+---
+
+### Step 5: Setup Python Virtual Environment & Configuration
+
+Create Python virtual environment, install requirements, and configure environment variables:
+
+```bash
+cd /var/www/vkshop
+
+# Create Python virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+
+# Upgrade pip and install application dependencies
+pip install --upgrade pip setuptools wheel
+pip install -r requirements.txt
+
+# Create .env file from template
+cp .env.example .env
+```
+
+---
+
+### Step 6: Enable Gunicorn Systemd Service & Nginx
+
+Install Systemd unit file and Nginx reverse proxy configuration:
+
+```bash
+# Install Systemd service for Gunicorn
+sudo cp vkshop.service /etc/systemd/system/vkshop.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now vkshop
+
+# Verify Gunicorn service status
+sudo systemctl status vkshop
+
+# Configure Nginx reverse proxy
+sudo cp nginx.conf /etc/nginx/sites-available/vkshop
+sudo ln -sf /etc/nginx/sites-available/vkshop /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+### Step 7: Create & Connect Cloudflare Tunnel (Auto-Service)
+
+Install Cloudflare Tunnel (`cloudflared`) and register it as an auto-restarting Systemd background service:
+
+```bash
+# 1. Download & Install cloudflared package
+wget -q https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb
+rm -f cloudflared-linux-amd64.deb
+
+# 2. Install Cloudflare Tunnel service using your token from Cloudflare Dashboard
+# Replace <YOUR_CLOUDFLARE_TUNNEL_TOKEN> with your actual tunnel token:
+sudo cloudflared service install <YOUR_CLOUDFLARE_TUNNEL_TOKEN>
+
+# 3. Enable and start cloudflared service
+sudo systemctl enable --now cloudflared
+
+# 4. Check tunnel status
+sudo systemctl status cloudflared
+```
+
+---
+
+## 🏥 Step 8: Verification & Health Checks
+
+Test health probe endpoints:
+
+```bash
+# Check Liveness probe
+curl -i http://127.0.0.1:5000/live
+
+# Check Readiness diagnostic probe
+curl -i http://127.0.0.1:5000/ready
+```
+Expected output: `HTTP 200 OK {"database":"connected","redis":"connected","status":"ok"}`.

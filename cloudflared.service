@@ -1,0 +1,14 @@
+[Unit]
+Description=Cloudflare Tunnel Service for VKShop
+After=network.target nginx.service
+Wants=nginx.service
+
+[Service]
+Type=notify
+TimeoutStartSec=0
+ExecStart=/usr/bin/cloudflared --no-autoupdate tunnel run --token ${TUNNEL_TOKEN}
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
