@@ -71,6 +71,15 @@ if [ ! -f "$APP_DIR/.env" ]; then
     sed -i "s|DATABASE_URL=.*|DATABASE_URL=postgresql+psycopg://$DB_USER:$DB_PASS@127.0.0.1:5432/$DB_NAME|" "$APP_DIR/.env"
 fi
 
+# Initialize database schema & seed initial admin data
+echo "Seeding database..."
+python3 "$APP_DIR/seed.py" || echo "Seeder executed with warnings."
+
+# Ensure directory structure and ownership permissions for www-data
+mkdir -p "$APP_DIR/logs" "$APP_DIR/static/uploads"
+sudo chown -R www-data:www-data "$APP_DIR"
+sudo chmod -R 775 "$APP_DIR/logs" "$APP_DIR/static/uploads"
+
 # 6. Enable Gunicorn Systemd Service & Nginx Reverse Proxy
 echo "[STEP 6/7] Enabling Systemd Service & Nginx Reverse Proxy..."
 sudo cp "$APP_DIR/vkshop.service" /etc/systemd/system/vkshop.service

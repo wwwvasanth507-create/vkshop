@@ -34,7 +34,7 @@ class User(db.Model, UserMixin):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Verifier fields
-    seller_id = db.Column(db.Integer, db.ForeignKey('store_profiles.id', ondelete='SET NULL'), nullable=True)
+    seller_id = db.Column(db.Integer, db.ForeignKey('store_profiles.id', ondelete='SET NULL', use_alter=True, name='fk_users_seller_id'), nullable=True)
     is_suspended = db.Column(db.Boolean, default=False)
     
     # Relationships

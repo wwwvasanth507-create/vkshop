@@ -15,8 +15,16 @@ def seed_database():
     init_db(app)
     
     with app.app_context():
-        # Re-create database
-        db.drop_all()
+        # Re-create database safely handling circular foreign key dependencies
+        try:
+            db.drop_all()
+        except Exception as drop_err:
+            db.session.rollback()
+            try:
+                db.session.execute(db.text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
+                db.session.commit()
+            except Exception:
+                db.session.rollback()
         db.create_all()
         print("Database tables initialized successfully.")
         
