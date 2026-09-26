@@ -241,6 +241,31 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(monitoring_bp)
     
+    # 9.5 Safe Media Route for Static Uploads (S3 Stream Fallback + Placeholder Guard)
+    @app.route('/static/uploads/<path:filename>')
+    def serve_upload_file(filename):
+        from services.storage import storage_service
+        upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads'))
+        local_path = os.path.abspath(os.path.join(upload_folder, filename.replace('/', os.sep)))
+        if os.path.exists(local_path) and os.path.isfile(local_path):
+            return send_file(local_path)
+            
+        # If missing on container disk, attempt retrieval from S3 Object Storage
+        if storage_service.is_available():
+            try:
+                stream, stat = storage_service.get_file(filename)
+                import mimetypes
+                content_type = getattr(stat, 'content_type', None) or mimetypes.guess_type(filename)[0] or 'application/octet-stream'
+                return send_file(stream, mimetype=content_type)
+            except Exception as err:
+                app.logger.warning(f"Static upload fetch '{filename}' from S3 failed: {err}")
+                
+        # Placeholder fallback if file is missing everywhere
+        placeholder = os.path.join(app.root_path, 'static', 'uploads', 'placeholder.jpg')
+        if os.path.exists(placeholder):
+            return send_file(placeholder, mimetype='image/jpeg')
+        return jsonify({'error': 'File not found'}), 404
+
     # 10. Unified Production Error Pages
     @app.errorhandler(404)
     def page_not_found(e):
