@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: vkshop_web
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - SECRET_KEY=secure_vkshop_production_secret_key_change_me
+      - DATABASE_URL=postgresql+psycopg://vkshop_user:vkshop_secure_password@postgres:5432/ecommerce
+      - REDIS_URL=redis://redis:6379/0
+      - STORAGE_PROVIDER=local
+      - ALLOW_LOCAL_STORAGE_FALLBACK=True
+      - WEB_CONCURRENCY=2
+      - GUNICORN_THREADS=4
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - vkshop_uploads:/var/www/vkshop/static/uploads
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: vkshop_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: vkshop_user
+      POSTGRES_PASSWORD: vkshop_secure_password
+      POSTGRES_DB: ecommerce
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vkshop_user -d ecommerce"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: vkshop_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+  vkshop_uploads:

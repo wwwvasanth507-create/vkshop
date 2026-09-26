@@ -21,15 +21,13 @@ class Config:
         if ENV == 'production' and SECRET_KEY == 'dev_secret_key_amazon_flipkart_clone_99384':
             SECRET_KEY = secrets.token_hex(32)
             
-    # Public Application URL (used for keep-alive pings and canonical links)
-    APP_URL = os.environ.get('APP_URL') or os.environ.get('RENDER_EXTERNAL_URL')
+    # Public Application URL (Local Ubuntu Server domain/IP or hostname)
+    APP_URL = os.environ.get('APP_URL', 'http://127.0.0.1:5000').rstrip('/')
 
-    # Database Configuration
-
+    # Exclusive PostgreSQL Database Configuration
     DB_DIR = os.path.join(BASE_DIR, 'database')
     os.makedirs(DB_DIR, exist_ok=True)
     
-    # Check for DATABASE_URL or build PostgreSQL URI
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
     if SQLALCHEMY_DATABASE_URI:
         if SQLALCHEMY_DATABASE_URI.startswith('postgres://'):
@@ -40,10 +38,10 @@ class Config:
     if not SQLALCHEMY_DATABASE_URI:
         db_user = os.environ.get('POSTGRES_USER')
         db_password = os.environ.get('POSTGRES_PASSWORD')
-        db_host = os.environ.get('POSTGRES_HOST')
-        db_port = os.environ.get('POSTGRES_PORT')
-        db_name = os.environ.get('POSTGRES_DB')
-        if all([db_user, db_password, db_host, db_port, db_name]):
+        db_host = os.environ.get('POSTGRES_HOST', '127.0.0.1')
+        db_port = os.environ.get('POSTGRES_PORT', '5432')
+        db_name = os.environ.get('POSTGRES_DB', 'ecommerce')
+        if db_user and db_password:
             SQLALCHEMY_DATABASE_URI = f"postgresql+psycopg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         else:
             if ENV == 'production':
@@ -52,57 +50,45 @@ class Config:
             
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # Connection Pool Tuning
+    # PostgreSQL Connection Pool Tuning
     if SQLALCHEMY_DATABASE_URI.startswith('sqlite'):
-        SQLALCHEMY_ENGINE_OPTIONS = {
-            'pool_pre_ping': True
-        }
+        SQLALCHEMY_ENGINE_OPTIONS = {'pool_pre_ping': True}
     else:
         SQLALCHEMY_ENGINE_OPTIONS = {
-            'pool_size': int(os.environ.get('DATABASE_POOL_SIZE', 5)),
-            'max_overflow': int(os.environ.get('DATABASE_MAX_OVERFLOW', 10)),
+            'pool_size': int(os.environ.get('DATABASE_POOL_SIZE', 10)),
+            'max_overflow': int(os.environ.get('DATABASE_MAX_OVERFLOW', 20)),
             'pool_recycle': int(os.environ.get('DATABASE_POOL_RECYCLE', 300)),
             'pool_timeout': int(os.environ.get('DATABASE_POOL_TIMEOUT', 15)),
             'pool_pre_ping': True
         }
     
-    # Redis Session Config with Fallback
+    # Redis Session & Cache Configuration
     SESSION_TYPE = os.environ.get('SESSION_TYPE', 'redis')
+    REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
     if SESSION_TYPE == 'redis':
         import redis
-        REDIS_URL = os.environ.get('REDIS_URL', 'redis://127.0.0.1:6379/0')
         try:
             r = redis.from_url(REDIS_URL, socket_timeout=1)
             r.ping()
             SESSION_REDIS = r
             SESSION_USE_SIGNER = True
             SESSION_PERMANENT = True
-            SESSION_KEY_PREFIX = 'ecom_sess:'
+            SESSION_KEY_PREFIX = 'vkshop_sess:'
         except Exception:
-            if ENV == 'production':
-                # Use standard Flask signed cookie sessions in production if Redis is missing
-                SESSION_TYPE = 'cookie'
-            else:
-                SESSION_TYPE = 'filesystem'
-                SESSION_FILE_DIR = os.path.join(BASE_DIR, 'database', 'sessions')
-                os.makedirs(SESSION_FILE_DIR, exist_ok=True)
-                SESSION_PERMANENT = True
-
-
+            SESSION_TYPE = 'cookie'
         
     # Rate Limiting Settings
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'memory://')
     
-    # Standard S3 / MinIO Credentials (Compatible with AWS S3, Cloudflare R2, MinIO, Supabase, B2)
+    # Storage Configuration (MinIO / S3 or Local File System)
     MINIO_ENDPOINT = os.environ.get('S3_ENDPOINT') or os.environ.get('MINIO_ENDPOINT')
-    MINIO_ACCESS_KEY = os.environ.get('S3_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID') or os.environ.get('MINIO_ACCESS_KEY')
-    MINIO_SECRET_KEY = os.environ.get('S3_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY') or os.environ.get('MINIO_SECRET_KEY')
+    MINIO_ACCESS_KEY = os.environ.get('S3_ACCESS_KEY') or os.environ.get('MINIO_ACCESS_KEY')
+    MINIO_SECRET_KEY = os.environ.get('S3_SECRET_KEY') or os.environ.get('MINIO_SECRET_KEY')
     MINIO_BUCKET_NAME = os.environ.get('S3_BUCKET') or os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
-    MINIO_REGION = os.environ.get('S3_REGION') or os.environ.get('AWS_REGION', 'us-east-1')
-    MINIO_SECURE = os.environ.get('MINIO_SECURE', 'True' if ENV == 'production' else 'False').lower() in ('true', '1', 't')
+    MINIO_REGION = os.environ.get('S3_REGION') or os.environ.get('MINIO_REGION', 'us-east-1')
+    MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() in ('true', '1', 't')
     
-    # Provider-Agnostic Storage Settings
-    STORAGE_PROVIDER = os.environ.get('STORAGE_PROVIDER', 's3')
+    STORAGE_PROVIDER = os.environ.get('STORAGE_PROVIDER', 'local')
     STORAGE_PUBLIC_URL = os.environ.get('STORAGE_PUBLIC_URL', '').rstrip('/')
     ALLOW_LOCAL_STORAGE_FALLBACK = os.environ.get('ALLOW_LOCAL_STORAGE_FALLBACK', 'False' if ENV == 'production' else 'True').lower() in ('true', '1', 't')
     
@@ -112,7 +98,7 @@ class Config:
     IMAGE_WEBP_QUALITY = int(os.environ.get('IMAGE_WEBP_QUALITY', 82))
     IMAGE_MAX_UPLOAD_MB = int(os.environ.get('IMAGE_MAX_UPLOAD_MB', 15))
     
-    # Local Upload Directories (retained for backward compatibility / sync)
+    # Local Upload Directories
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
     PRODUCT_UPLOADS = os.path.join(UPLOAD_FOLDER, 'products')
     USER_UPLOADS = os.path.join(UPLOAD_FOLDER, 'users')
@@ -121,15 +107,12 @@ class Config:
     CATEGORY_UPLOADS = os.path.join(UPLOAD_FOLDER, 'categories')
     ADMIN_UPLOADS = os.path.join(UPLOAD_FOLDER, 'admin')
     
-    # Ensure local upload directories exist
     for folder in [PRODUCT_UPLOADS, USER_UPLOADS, STORE_UPLOADS, BANNER_UPLOADS, CATEGORY_UPLOADS, ADMIN_UPLOADS]:
         os.makedirs(folder, exist_ok=True)
         
-    # App Settings
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB limit
     
-    # Session Cookie Security Options
-    SESSION_COOKIE_NAME = 'ecom_session'
+    SESSION_COOKIE_NAME = 'vkshop_session'
     SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 't')
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
@@ -142,14 +125,13 @@ class DevelopmentConfig(Config):
 class ProductionConfig(Config):
     ENV = 'production'
     DEBUG = False
-    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 't')
 
 class TestingConfig(Config):
     ENV = 'testing'
     TESTING = True
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    SESSION_TYPE = None  # Use cookie-based session for standalone testing
+    SESSION_TYPE = None
     RATELIMIT_STORAGE_URI = 'memory://'
-    # Disable engine options for sqlite memory connection
     SQLALCHEMY_ENGINE_OPTIONS = {}
