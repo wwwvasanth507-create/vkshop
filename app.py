@@ -241,29 +241,31 @@ def create_app():
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(monitoring_bp)
     
-    # 9.5 Safe Media Route for Static Uploads (S3 Stream Fallback + Placeholder Guard)
+    # 9.5 Safe Media Route for Static Uploads (No Gunicorn Proxying; Direct CDN Redirect + Placeholder Guard)
     @app.route('/static/uploads/<path:filename>')
     def serve_upload_file(filename):
         from services.storage import storage_service
         upload_folder = app.config.get('UPLOAD_FOLDER', os.path.join(app.root_path, 'static', 'uploads'))
         local_path = os.path.abspath(os.path.join(upload_folder, filename.replace('/', os.sep)))
+        
+        # 1. Serve local file if present on disk (with long-lived immutable cache header)
         if os.path.exists(local_path) and os.path.isfile(local_path):
-            return send_file(local_path)
+            resp = send_file(local_path)
+            resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+            return resp
             
-        # If missing on container disk, attempt retrieval from S3 Object Storage
+        # 2. In production / S3 mode, REDIRECT browser directly to CDN/S3 URL (Bypasses Gunicorn worker threads)
         if storage_service.is_available():
-            try:
-                stream, stat = storage_service.get_file(filename)
-                import mimetypes
-                content_type = getattr(stat, 'content_type', None) or mimetypes.guess_type(filename)[0] or 'application/octet-stream'
-                return send_file(stream, mimetype=content_type)
-            except Exception as err:
-                app.logger.warning(f"Static upload fetch '{filename}' from S3 failed: {err}")
+            direct_cdn_url = storage_service.get_public_url(filename)
+            if not direct_cdn_url.startswith('/static/uploads/'):
+                return redirect(direct_cdn_url, code=302)
                 
-        # Placeholder fallback if file is missing everywhere
+        # 3. Fallback placeholder if file is missing everywhere
         placeholder = os.path.join(app.root_path, 'static', 'uploads', 'placeholder.jpg')
         if os.path.exists(placeholder):
-            return send_file(placeholder, mimetype='image/jpeg')
+            resp = send_file(placeholder, mimetype='image/jpeg')
+            resp.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+            return resp
         return jsonify({'error': 'File not found'}), 404
 
     # 10. Unified Production Error Pages

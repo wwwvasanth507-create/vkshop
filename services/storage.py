@@ -332,6 +332,9 @@ class StorageService:
     def get_public_url(self, object_name: str) -> str:
         """Return public CDN/storage URL or fallback route for an object key."""
         clean_key = sanitize_object_key(object_name)
+        
+        # 1. Check explicit STORAGE_PUBLIC_URL configuration
+        pub_base = ""
         try:
             pub_base = current_app.config.get('STORAGE_PUBLIC_URL', '').rstrip('/')
         except Exception:
@@ -339,6 +342,20 @@ class StorageService:
 
         if pub_base:
             return f"{pub_base}/{clean_key}"
+
+        # 2. Derive public S3/R2 endpoint URL directly if S3 credentials & bucket exist
+        try:
+            endpoint = current_app.config.get('MINIO_ENDPOINT') or os.environ.get('S3_ENDPOINT') or os.environ.get('MINIO_ENDPOINT')
+            bucket = current_app.config.get('MINIO_BUCKET_NAME') or os.environ.get('S3_BUCKET') or os.environ.get('MINIO_BUCKET_NAME')
+            if endpoint and bucket:
+                clean_ep = str(endpoint).strip().rstrip('/')
+                if not clean_ep.startswith(('http://', 'https://')):
+                    clean_ep = f"https://{clean_ep}"
+                return f"{clean_ep}/{bucket}/{clean_key}"
+        except Exception:
+            pass
+
+        # 3. Fallback for local development without S3/Object storage configuration
         return f"/static/uploads/{clean_key}"
 
     def generate_presigned_upload_url(self, object_name: str, expires_seconds: int = 3600) -> Optional[str]:

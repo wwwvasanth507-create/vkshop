@@ -212,8 +212,12 @@ def check_commission_suspension_job(app):
 def keep_alive_self_ping_job(app):
     """
     Self-ping the public /health endpoint every 10 minutes to prevent Render Free Tier from sleeping.
-    Render edge proxy detects incoming HTTP requests to RENDER_EXTERNAL_URL / APP_URL and resets the 15-minute idle timeout.
+    Skipped if DISABLE_SELF_PING is set to True (when external uptime monitoring is used).
     """
+    if os.environ.get('DISABLE_SELF_PING', 'False').lower() in ('true', '1', 't'):
+        logger.info("[KEEP-ALIVE] Self-ping disabled via DISABLE_SELF_PING environment variable.")
+        return
+
     import urllib.request
     target_url = (
         os.environ.get('APP_URL') or 
@@ -233,7 +237,7 @@ def keep_alive_self_ping_job(app):
             health_url,
             headers={'User-Agent': 'VKShop-KeepAlive-Ping/1.0'}
         )
-        with urllib.request.urlopen(req, timeout=15) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == 200:
                 logger.info(f"[KEEP-ALIVE] Ping to {health_url} succeeded (status 200). Render spin-down prevented.")
             else:
