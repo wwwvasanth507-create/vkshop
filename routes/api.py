@@ -82,3 +82,113 @@ def wishlist_toggle(product_id):
         db.session.add(new_w)
         db.session.commit()
         return jsonify({'success': True, 'action': 'added', 'message': 'Added to wishlist.'})
+
+# ==================== MOBILE & ANDROID REST API ENDPOINTS ====================
+
+@api_bp.route('/products', methods=['GET'])
+def get_products():
+    """Paginated product catalog for Android App & REST Clients."""
+    from services.storage import resolve_image_url
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    q = request.args.get('q', '').strip()
+    cat_id = request.args.get('category_id', type=int)
+
+    query = Product.query.filter_by(is_active=True)
+    if q:
+        query = query.filter(Product.name.ilike(f"%{q}%"))
+    if cat_id:
+        query = query.filter_by(category_id=cat_id)
+
+    pagination = query.order_by(Product.created_at.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    items = []
+    for p in pagination.items:
+        items.append({
+            'id': p.id,
+            'name': p.name,
+            'slug': p.slug,
+            'base_price': p.base_price,
+            'offer_price': p.offer_price,
+            'discount_percent': p.discount_percent,
+            'image_url': resolve_image_url(p.main_image),
+            'rating': p.average_rating,
+            'in_stock': not p.is_out_of_stock
+        })
+    return jsonify({
+        'success': True,
+        'page': page,
+        'pages': pagination.pages,
+        'total': pagination.total,
+        'products': items
+    })
+
+@api_bp.route('/products/<int:product_id>', methods=['GET'])
+def get_product_detail(product_id):
+    """Detailed product information with image gallery, specs & variants."""
+    from services.storage import resolve_image_url
+    p = Product.query.get_or_404(product_id)
+    images = [resolve_image_url(img.image_path) for img in p.images] or [resolve_image_url(p.main_image)]
+    variants = []
+    for v in p.variants:
+        variants.append({
+            'id': v.id,
+            'color': v.color,
+            'size': v.size,
+            'ram': v.ram,
+            'storage': v.storage,
+            'price': v.price,
+            'stock': v.stock
+        })
+    return jsonify({
+        'success': True,
+        'product': {
+            'id': p.id,
+            'name': p.name,
+            'description': p.description,
+            'base_price': p.base_price,
+            'offer_price': p.offer_price,
+            'discount_percent': p.discount_percent,
+            'rating': p.average_rating,
+            'images': images,
+            'variants': variants,
+            'specifications': p.specifications,
+            'features': p.features,
+            'in_stock': not p.is_out_of_stock
+        }
+    })
+
+@api_bp.route('/categories', methods=['GET'])
+def get_categories():
+    """Return category hierarchy for mobile navigation."""
+    from services.storage import resolve_image_url
+    categories = Category.query.filter(Category.parent_id == None).all()
+    res = []
+    for c in categories:
+        res.append({
+            'id': c.id,
+            'name': c.name,
+            'slug': c.slug,
+            'icon': c.icon,
+            'image_url': resolve_image_url(c.image),
+            'children': [{'id': ch.id, 'name': ch.name, 'slug': ch.slug} for ch in c.children]
+        })
+    return jsonify({'success': True, 'categories': res})
+
+@api_bp.route('/storage/presigned-upload', methods=['POST'])
+def generate_presigned_upload():
+    """Generates direct S3 upload URL for mobile & web file upload controls."""
+    data = request.get_json(silent=True) or {}
+    category = data.get('category', 'products')
+    original_filename = data.get('filename', 'image.jpg')
+    
+    from services.storage import storage_service, generate_object_key
+    key = generate_object_key(category, original_filename)
+    url = storage_service.generate_presigned_upload_url(key)
+    
+    return jsonify({
+        'success': bool(url),
+        'object_key': key,
+        'upload_url': url or f"/api/storage/upload-direct/{key}",
+        'public_url': storage_service.get_public_url(key)
+    })
+

@@ -167,6 +167,7 @@ class StorageService:
     def __init__(self):
         self._client = None
         self._bucket_name = None
+        self._bucket_checked = False
 
     def is_available(self) -> bool:
         """Return True if S3 client is configured and initialized."""
@@ -181,12 +182,14 @@ class StorageService:
                 secret_key = current_app.config.get('MINIO_SECRET_KEY')
                 secure = current_app.config.get('MINIO_SECURE', False)
                 self._bucket_name = current_app.config.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+                region = current_app.config.get('MINIO_REGION', 'us-east-1')
             except Exception:
-                endpoint = os.environ.get('MINIO_ENDPOINT')
-                access_key = os.environ.get('MINIO_ACCESS_KEY')
-                secret_key = os.environ.get('MINIO_SECRET_KEY')
+                endpoint = os.environ.get('S3_ENDPOINT') or os.environ.get('MINIO_ENDPOINT')
+                access_key = os.environ.get('S3_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID') or os.environ.get('MINIO_ACCESS_KEY')
+                secret_key = os.environ.get('S3_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY') or os.environ.get('MINIO_SECRET_KEY')
                 secure = os.environ.get('MINIO_SECURE', 'False').lower() in ('true', '1', 't')
-                self._bucket_name = os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+                self._bucket_name = os.environ.get('S3_BUCKET') or os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+                region = os.environ.get('S3_REGION') or os.environ.get('AWS_REGION', 'us-east-1')
 
             if not all([endpoint, access_key, secret_key]):
                 logger.warning("S3 credentials not fully configured. Object storage client disabled.")
@@ -200,22 +203,24 @@ class StorageService:
                     clean_endpoint = clean_endpoint.split('://', 1)[1]
                 clean_endpoint = clean_endpoint.rstrip('/')
 
-                # Setup MinIO S3 client (compatible with R2, S3, MinIO, Supabase)
+                # Setup MinIO S3 client (compatible with AWS S3, R2, MinIO, Supabase)
                 import urllib3
                 http_client = urllib3.PoolManager(
                     timeout=urllib3.Timeout(connect=5.0, read=15.0),
-                    maxsize=10,
+                    maxsize=20,
                     retries=urllib3.Retry(total=2, backoff_factor=0.5)
                 )
-                self._client = Minio(
-                    clean_endpoint,
-                    access_key=access_key,
-                    secret_key=secret_key,
-                    secure=secure,
-                    http_client=http_client
-                )
-                # Ensure bucket exists
-                self.ensure_bucket()
+                minio_kwargs = {
+                    'access_key': access_key,
+                    'secret_key': secret_key,
+                    'secure': secure,
+                    'http_client': http_client
+                }
+                raw_region = os.environ.get('S3_REGION') or os.environ.get('AWS_REGION') or os.environ.get('MINIO_REGION')
+                if raw_region:
+                    minio_kwargs['region'] = raw_region
+
+                self._client = Minio(clean_endpoint, **minio_kwargs)
             except Exception as e:
                 logger.error(f"Failed to initialize S3 client: {e}")
                 self._client = None
@@ -223,22 +228,40 @@ class StorageService:
 
     @property
     def bucket_name(self) -> str:
-        # Trigger client resolution to populate bucket name
-        _ = self.client
+        if not self._bucket_name:
+            try:
+                self._bucket_name = current_app.config.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+            except Exception:
+                self._bucket_name = os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
         return self._bucket_name or 'ecom-uploads'
 
     def ensure_bucket(self) -> bool:
-        """Ensure the configured bucket exists, creating it if permitted and missing."""
-        if self._client is None:
+        """
+        Ensure configured bucket exists. Handled safely so AccessDenied
+        on bucket list/create does NOT block normal PutObject/GetObject calls.
+        """
+        if self._bucket_checked:
+            return True
+        cli = self.client
+        if cli is None:
             return False
         try:
-            if not self._client.bucket_exists(self._bucket_name):
-                self._client.make_bucket(self._bucket_name)
-                logger.info(f"Created object storage bucket: {self._bucket_name}")
+            if not cli.bucket_exists(self.bucket_name):
+                try:
+                    cli.make_bucket(self.bucket_name)
+                    logger.info(f"Created object storage bucket: {self.bucket_name}")
+                except Exception as create_err:
+                    logger.warning(f"Could not create bucket '{self.bucket_name}' (assuming pre-existing): {create_err}")
+            self._bucket_checked = True
             return True
         except Exception as e:
-            logger.warning(f"Could not verify or create bucket {self._bucket_name}: {e}")
-            return True  # Return True if bucket creation failed due to permission restriction on existing bucket
+            err_str = str(e)
+            if 'AccessDenied' in err_str or '403' in err_str:
+                logger.info(f"AccessDenied on bucket_exists check for '{self.bucket_name}'. Proceeding assuming object-level access.")
+            else:
+                logger.warning(f"Could not verify bucket '{self.bucket_name}': {e}")
+            self._bucket_checked = True  # Avoid repeating failing check on every request
+            return True
 
     def upload_file_stream(self, stream, object_name: str, content_type: Optional[str] = None) -> str:
         """Upload a file stream to object storage with sanitized object key."""
@@ -317,6 +340,60 @@ class StorageService:
         if pub_base:
             return f"{pub_base}/{clean_key}"
         return f"/static/uploads/{clean_key}"
+
+    def generate_presigned_upload_url(self, object_name: str, expires_seconds: int = 3600) -> Optional[str]:
+        """Generate a pre-signed URL for direct browser/Android app client uploads."""
+        clean_key = sanitize_object_key(object_name)
+        cli = self.client
+        if cli is None:
+            return None
+        try:
+            from datetime import timedelta
+            url = cli.presigned_put_object(
+                self.bucket_name,
+                clean_key,
+                expires=timedelta(seconds=expires_seconds)
+            )
+            return url
+        except Exception as e:
+            logger.error(f"Error generating presigned upload URL for {clean_key}: {e}")
+            return None
+
+    def generate_thumbnail(self, image_data: bytes, original_key: str, max_dim: int = 300) -> Optional[str]:
+        """Generate and store a product thumbnail in product-thumbnails/ folder."""
+        try:
+            input_buf = io.BytesIO(image_data)
+            with Image.open(input_buf) as img:
+                img = ImageOps.exif_transpose(img)
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+                out_buf = io.BytesIO()
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
+                img.save(out_buf, format='WEBP', quality=75, method=0)
+                thumb_bytes = out_buf.getvalue()
+
+            base_name = os.path.basename(original_key)
+            raw_name, _ = os.path.splitext(base_name)
+            thumb_key = f"product-thumbnails/{raw_name}_thumb.webp"
+            
+            if self.is_available():
+                self.upload_bytes(thumb_bytes, thumb_key, content_type='image/webp')
+                return thumb_key
+            else:
+                allow_fallback = True
+                try:
+                    allow_fallback = current_app.config.get('ALLOW_LOCAL_STORAGE_FALLBACK', True)
+                except Exception:
+                    pass
+                if allow_fallback:
+                    local_target = os.path.join(current_app.config['UPLOAD_FOLDER'], thumb_key.replace('/', os.sep))
+                    os.makedirs(os.path.dirname(local_target), exist_ok=True)
+                    with open(local_target, 'wb') as f:
+                        f.write(thumb_bytes)
+                    return thumb_key
+        except Exception as e:
+            logger.warning(f"Failed to generate thumbnail for {original_key}: {e}")
+        return None
 
 storage_service = StorageService()
 

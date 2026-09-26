@@ -960,3 +960,54 @@ class SubAdminActivity(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship('User', backref=db.backref('sub_admin_activities', lazy='dynamic', cascade='all, delete-orphan', passive_deletes=True))
+
+
+# ==================== MULTI-SERVER INFRASTRUCTURE MODELS ====================
+
+class ServerInstance(db.Model):
+    """Multi-server infrastructure registry & health tracking"""
+    __tablename__ = 'server_instances'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    server_id = db.Column(db.String(100), unique=True, nullable=False, index=True) # e.g. "srv-asia-south-1a"
+    name = db.Column(db.String(100), nullable=False) # e.g. "VKShop Primary Render 1"
+    provider = db.Column(db.String(50), default='Render') # "Render", "AWS", "Self-Hosted", "GCP"
+    region = db.Column(db.String(50), default='India') # "India", "Singapore", "US-East"
+    ip_address = db.Column(db.String(45), nullable=True)
+    api_endpoint = db.Column(db.String(255), nullable=False) # e.g. "https://vkshop-srv1.onrender.com"
+    health_endpoint = db.Column(db.String(255), default='/ready')
+    
+    weight = db.Column(db.Integer, default=100) # Load balancer routing weight
+    status = db.Column(db.String(30), default='ONLINE', index=True) # 'ONLINE', 'DEGRADED', 'UNHEALTHY', 'OFFLINE'
+    is_maintenance = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    cpu_usage = db.Column(db.Float, default=0.0) # CPU %
+    memory_usage = db.Column(db.Float, default=0.0) # Memory %
+    active_requests = db.Column(db.Integer, default=0)
+    requests_per_min = db.Column(db.Integer, default=0)
+    avg_latency_ms = db.Column(db.Float, default=0.0)
+    error_rate = db.Column(db.Float, default=0.0) # Error %
+    consecutive_failures = db.Column(db.Integer, default=0)
+    
+    last_heartbeat = db.Column(db.DateTime, default=datetime.utcnow)
+    last_successful_request = db.Column(db.DateTime, default=datetime.utcnow)
+    version = db.Column(db.String(50), default='2.0.0')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class ServerMetric(db.Model):
+    """Historical telemetry metric points per server node"""
+    __tablename__ = 'server_metrics'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    server_id = db.Column(db.String(100), db.ForeignKey('server_instances.server_id', ondelete='CASCADE'), nullable=False)
+    cpu_pct = db.Column(db.Float, default=0.0)
+    memory_pct = db.Column(db.Float, default=0.0)
+    latency_ms = db.Column(db.Float, default=0.0)
+    requests_per_sec = db.Column(db.Float, default=0.0)
+    error_count_5xx = db.Column(db.Integer, default=0)
+    recorded_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    
+    server = db.relationship('ServerInstance', backref=db.backref('metrics', lazy='dynamic', cascade='all, delete-orphan'))

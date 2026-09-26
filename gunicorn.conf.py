@@ -16,9 +16,9 @@ max_requests = int(os.environ.get('GUNICORN_MAX_REQUESTS', '500'))
 max_requests_jitter = int(os.environ.get('GUNICORN_MAX_REQUESTS_JITTER', '100'))
 
 # Bounded Timeout options
-timeout = 60
-graceful_timeout = 30
-keepalive = 5
+timeout = int(os.environ.get('GUNICORN_TIMEOUT', '60'))
+graceful_timeout = int(os.environ.get('GUNICORN_GRACEFUL_TIMEOUT', '30'))
+keepalive = int(os.environ.get('GUNICORN_KEEPALIVE', '5'))
 
 # Logging settings - stream to stdout/stderr for Render log aggregator
 accesslog = "-"

@@ -1219,3 +1219,110 @@ def warn_seller_for_complaint(complaint_id):
     
     flash("Warning sent to seller and complaint marked as resolved.", "success")
     return redirect(url_for('admin.dashboard') + '#complaints')
+
+
+# ==================== MULTI-SERVER INFRASTRUCTURE & MANAGEMENT ====================
+
+@admin_bp.route('/infrastructure')
+@admin_bp.route('/servers')
+def server_management():
+    from models import ServerInstance, ServerMetric
+    from services.redis_service import redis_service
+    from services.storage import storage_service
+    
+    servers = ServerInstance.query.order_by(ServerInstance.id.asc()).all()
+    
+    # System metrics summary
+    online_count = sum(1 for s in servers if s.status in ['ONLINE', 'DEGRADED'])
+    unhealthy_count = sum(1 for s in servers if s.status == 'UNHEALTHY')
+    offline_count = sum(1 for s in servers if s.status == 'OFFLINE')
+    
+    total_req_min = sum(s.requests_per_min or 0 for s in servers)
+    avg_latency = round(sum(s.avg_latency_ms or 0 for s in servers) / len(servers), 1) if servers else 0.0
+    
+    redis_status = "Connected" if redis_service.is_available() else "In-Memory Fallback"
+    storage_status = "Connected (S3/R2)" if storage_service.is_available() else "Local Fallback"
+    
+    recent_metrics = ServerMetric.query.order_by(ServerMetric.recorded_at.desc()).limit(50).all()
+    
+    return render_template(
+        'admin/infrastructure.html',
+        servers=servers,
+        online_count=online_count,
+        unhealthy_count=unhealthy_count,
+        offline_count=offline_count,
+        total_req_min=total_req_min,
+        avg_latency=avg_latency,
+        redis_status=redis_status,
+        storage_status=storage_status,
+        recent_metrics=recent_metrics
+    )
+
+@admin_bp.route('/infrastructure/server/register', methods=['POST'])
+def register_new_server():
+    server_id = request.form.get('server_id', '').strip()
+    name = request.form.get('name', '').strip()
+    provider = request.form.get('provider', 'Render').strip()
+    region = request.form.get('region', 'India').strip()
+    api_endpoint = request.form.get('api_endpoint', '').strip()
+    weight = request.form.get('weight', 100, type=int)
+
+    if not server_id or not name or not api_endpoint:
+        flash("Server ID, Name, and API Endpoint are required.", "danger")
+        return redirect(url_for('admin.server_management'))
+
+    from services.server_registry import server_registry
+    try:
+        server_registry.register_server(
+            server_id=server_id,
+            name=name,
+            provider=provider,
+            region=region,
+            api_endpoint=api_endpoint,
+            weight=weight
+        )
+        flash(f"Server '{name}' ({server_id}) registered successfully.", "success")
+    except Exception as e:
+        flash(f"Failed to register server: {e}", "danger")
+
+    return redirect(url_for('admin.server_management'))
+
+@admin_bp.route('/infrastructure/server/<int:server_pk>/status', methods=['POST'])
+def update_server_status(server_pk):
+    from models import ServerInstance
+    srv = ServerInstance.query.get_or_404(server_pk)
+    action = request.form.get('action')
+
+    if action == 'enable':
+        srv.is_active = True
+        srv.status = 'ONLINE'
+        srv.is_maintenance = False
+        flash(f"Server '{srv.name}' enabled.", "success")
+    elif action == 'disable':
+        srv.is_active = False
+        srv.status = 'OFFLINE'
+        flash(f"Server '{srv.name}' disabled.", "warning")
+    elif action == 'maintenance':
+        srv.is_maintenance = True
+        srv.status = 'DEGRADED'
+        flash(f"Server '{srv.name}' put into maintenance mode.", "info")
+
+    db.session.commit()
+    return redirect(url_for('admin.server_management'))
+
+@admin_bp.route('/infrastructure/server/<int:server_pk>/delete', methods=['POST'])
+def delete_server_instance(server_pk):
+    from models import ServerInstance
+    srv = ServerInstance.query.get_or_404(server_pk)
+    srv_name = srv.name
+    db.session.delete(srv)
+    db.session.commit()
+    flash(f"Server '{srv_name}' removed from cluster registry.", "success")
+    return redirect(url_for('admin.server_management'))
+
+@admin_bp.route('/infrastructure/server/trigger-health', methods=['POST'])
+def trigger_cluster_health_check():
+    from services.server_registry import server_registry
+    server_registry.check_all_servers_health()
+    flash("Cluster health check executed across all registered nodes.", "success")
+    return redirect(url_for('admin.server_management'))

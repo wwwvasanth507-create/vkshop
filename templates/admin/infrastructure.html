@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Server Infrastructure Management - VKShop Admin{% endblock %}
+
+{% block content %}
+<style>
+    .infra-card {
+        background: rgba(15, 23, 42, 0.85);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 16px;
+        color: #f8fafc;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    }
+    .status-badge-online { background: #059669; color: #ecfdf5; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .status-badge-degraded { background: #d97706; color: #fffbeb; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .status-badge-unhealthy { background: #dc2626; color: #fef2f2; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .status-badge-offline { background: #475569; color: #f1f5f9; padding: 4px 12px; border-radius: 20px; font-weight: 600; font-size: 0.85rem; }
+    .progress-bar-glow {
+        background: linear-gradient(90deg, #3b82f6, #6366f1);
+        box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+    }
+</style>
+
+<div class="container-fluid py-4 px-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold text-white mb-1"><i class="fas fa-server text-primary me-2"></i>VKShop Server Management & Infrastructure</h2>
+            <p class="text-secondary mb-0">Multi-server cluster health, load distribution, and zero-downtime node management plane</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form action="{{ url_for('admin.trigger_cluster_health_check') }}" method="POST" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-outline-info rounded-pill px-3">
+                    <i class="fas fa-sync-alt me-1"></i> Trigger Health Check
+                </button>
+            </form>
+            <button class="btn btn-primary rounded-pill px-3" data-bs-toggle="modal" data-bs-target="#registerServerModal">
+                <i class="fas fa-plus-circle me-1"></i> Register New Server
+            </button>
+        </div>
+    </div>
+
+    <!-- Top KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="infra-card p-3 d-flex align-items-center">
+                <div class="rounded-circle bg-emerald-500 bg-opacity-10 p-3 me-3 text-emerald-400">
+                    <i class="fas fa-network-wired fa-2x text-success"></i>
+                </div>
+                <div>
+                    <div class="text-secondary small fw-semibold">ACTIVE BACKEND NODES</div>
+                    <div class="fs-3 fw-bold text-white">{{ online_count }} / {{ servers|length }} <span class="fs-6 text-success fw-normal">Online</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="infra-card p-3 d-flex align-items-center">
+                <div class="rounded-circle p-3 me-3 text-warning">
+                    <i class="fas fa-tachometer-alt fa-2x text-warning"></i>
+                </div>
+                <div>
+                    <div class="text-secondary small fw-semibold">TOTAL TRAFFIC / MIN</div>
+                    <div class="fs-3 fw-bold text-white">{{ total_req_min }} <span class="fs-6 text-secondary fw-normal">req/min</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="infra-card p-3 d-flex align-items-center">
+                <div class="rounded-circle p-3 me-3 text-info">
+                    <i class="fas fa-stopwatch fa-2x text-info"></i>
+                </div>
+                <div>
+                    <div class="text-secondary small fw-semibold">AVERAGE LATENCY</div>
+                    <div class="fs-3 fw-bold text-white">{{ avg_latency }} <span class="fs-6 text-secondary fw-normal">ms</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="infra-card p-3 d-flex align-items-center">
+                <div class="rounded-circle p-3 me-3 text-purple">
+                    <i class="fas fa-database fa-2x text-primary"></i>
+                </div>
+                <div>
+                    <div class="text-secondary small fw-semibold">CENTRAL STORAGE / REDIS</div>
+                    <div class="fs-6 fw-bold text-white">{{ storage_status }}</div>
+                    <div class="small text-secondary">{{ redis_status }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <ul class="nav nav-pills mb-4 border-bottom border-secondary border-opacity-25 pb-3" id="infraTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active rounded-pill px-4" id="servers-tab" data-bs-toggle="tab" data-bs-target="#servers-content">
+                <i class="fas fa-server me-2"></i>Servers Cluster
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link rounded-pill px-4" id="traffic-tab" data-bs-toggle="tab" data-bs-target="#traffic-content">
+                <i class="fas fa-chart-line me-2"></i>Traffic & Load Balancer
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link rounded-pill px-4" id="health-tab" data-bs-toggle="tab" data-bs-target="#health-content">
+                <i class="fas fa-heartbeat me-2"></i>Health Diagnostics
+            </button>
+        </li>
+    </ul>
+
+    <!-- Tab Contents -->
+    <div class="tab-content" id="infraTabsContent">
+        <!-- Servers Cluster Tab -->
+        <div class="tab-pane fade show active" id="servers-content">
+            <div class="row g-4">
+                {% if not servers %}
+                <div class="col-12">
+                    <div class="infra-card p-5 text-center">
+                        <i class="fas fa-server fa-3x text-secondary mb-3"></i>
+                        <h4>Primary Node Auto-Registered</h4>
+                        <p class="text-secondary">No secondary backend servers currently registered in cluster. VKShop is running in single-instance primary mode.</p>
+                        <button class="btn btn-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#registerServerModal">
+                            <i class="fas fa-plus me-1"></i> Register Additional Render Server
+                        </button>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% for server in servers %}
+                <div class="col-lg-6">
+                    <div class="infra-card p-4">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                <h4 class="fw-bold text-white mb-1">{{ server.name }}</h4>
+                                <span class="text-secondary small"><i class="fas fa-fingerprint me-1"></i>ID: <code>{{ server.server_id }}</code></span>
+                            </div>
+                            <div>
+                                {% if server.status == 'ONLINE' %}
+                                    <span class="status-badge-online"><i class="fas fa-circle me-1 small"></i>ONLINE</span>
+                                {% elif server.status == 'DEGRADED' %}
+                                    <span class="status-badge-degraded"><i class="fas fa-exclamation-triangle me-1 small"></i>DEGRADED</span>
+                                {% elif server.status == 'UNHEALTHY' %}
+                                    <span class="status-badge-unhealthy"><i class="fas fa-times-circle me-1 small"></i>UNHEALTHY</span>
+                                {% else %}
+                                    <span class="status-badge-offline"><i class="fas fa-power-off me-1 small"></i>OFFLINE</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-6">
+                                <div class="bg-dark bg-opacity-50 p-2 rounded">
+                                    <div class="text-secondary small">PROVIDER / REGION</div>
+                                    <div class="fw-semibold text-white"><i class="fas fa-cloud me-1 text-info"></i>{{ server.provider }} ({{ server.region }})</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="bg-dark bg-opacity-50 p-2 rounded">
+                                    <div class="text-secondary small">API ENDPOINT</div>
+                                    <div class="fw-semibold text-truncate text-white"><code>{{ server.api_endpoint }}</code></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metrics Bars -->
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between small text-secondary mb-1">
+                                <span>CPU Utilization</span>
+                                <span class="text-white fw-bold">{{ server.cpu_usage }}%</span>
+                            </div>
+                            <div class="progress bg-dark" style="height: 6px;">
+                                <div class="progress-bar progress-bar-glow" style="width: {{ server.cpu_usage }}%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between small text-secondary mb-1">
+                                <span>Memory Utilization</span>
+                                <span class="text-white fw-bold">{{ server.memory_usage }}%</span>
+                            </div>
+                            <div class="progress bg-dark" style="height: 6px;">
+                                <div class="progress-bar bg-info" style="width: {{ server.memory_usage }}%;"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center text-secondary small pt-2 border-top border-secondary border-opacity-25">
+                            <div>
+                                <i class="fas fa-tachometer-alt me-1"></i>Req: <strong>{{ server.requests_per_min }}</strong>/min | Latency: <strong>{{ server.avg_latency_ms }} ms</strong>
+                            </div>
+                            <div>
+                                <i class="fas fa-clock me-1"></i>Heartbeat: {{ server.last_heartbeat.strftime('%H:%M:%S') if server.last_heartbeat else 'N/A' }}
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="d-flex gap-2 mt-3 pt-2">
+                            <form action="{{ url_for('admin.update_server_status', server_pk=server.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                {% if server.is_active %}
+                                    <button type="submit" name="action" value="disable" class="btn btn-sm btn-outline-warning rounded-pill">
+                                        <i class="fas fa-pause me-1"></i> Disable
+                                    </button>
+                                {% else %}
+                                    <button type="submit" name="action" value="enable" class="btn btn-sm btn-outline-success rounded-pill">
+                                        <i class="fas fa-play me-1"></i> Enable
+                                    </button>
+                                {% endif %}
+                                <button type="submit" name="action" value="maintenance" class="btn btn-sm btn-outline-info rounded-pill ms-1">
+                                    <i class="fas fa-wrench me-1"></i> Maintenance
+                                </button>
+                            </form>
+
+                            <form action="{{ url_for('admin.delete_server_instance', server_pk=server.id) }}" method="POST" class="d-inline ms-auto" onsubmit="return confirm('Remove server from cluster registry?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                    <i class="fas fa-trash me-1"></i> Remove
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Traffic & Load Balancer Tab -->
+        <div class="tab-pane fade" id="traffic-content">
+            <div class="infra-card p-4">
+                <h4 class="fw-bold text-white mb-3"><i class="fas fa-route text-info me-2"></i>Load Balancing & Traffic Distribution Strategy</h4>
+                <p class="text-secondary">VKShop uses Latency-Aware Weighted Routing to automatically distribute traffic across healthy backend servers while bypassing failing nodes.</p>
+                
+                <div class="bg-dark p-3 rounded mb-3">
+                    <h6 class="text-warning mb-2"><i class="fas fa-shield-alt me-1"></i>502 Prevention & Automatic Failover Circuit Breaker</h6>
+                    <ul class="text-secondary small mb-0">
+                        <li><strong>Consecutive Failure Threshold:</strong> 3 health check failures trigger immediate server removal from traffic pool.</li>
+                        <li><strong>Auto Recovery:</strong> When an unhealthy server passes readiness checks, it enters warm-up and is re-added to active routing pool.</li>
+                        <li><strong>Stateless Architecture:</strong> All sessions and carts are stored in Redis / PostgreSQL, so user traffic transfers seamlessly.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Health Diagnostics Tab -->
+        <div class="tab-pane fade" id="health-content">
+            <div class="infra-card p-4">
+                <h4 class="fw-bold text-white mb-3"><i class="fas fa-heartbeat text-rose me-2"></i>Live System Diagnostics</h4>
+                <table class="table table-dark table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>Component</th>
+                            <th>Target Endpoint / URI</th>
+                            <th>Status</th>
+                            <th>State</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>PostgreSQL Database</td>
+                            <td><code>Central PostgreSQL Cluster</code></td>
+                            <td><span class="badge bg-success">CONNECTED</span></td>
+                            <td>Shared central state active</td>
+                        </tr>
+                        <tr>
+                            <td>S3 / Object Storage</td>
+                            <td><code>AWS S3 / Cloudflare R2</code></td>
+                            <td><span class="badge bg-success">{{ storage_status }}</span></td>
+                            <td>Persistent file storage</td>
+                        </tr>
+                        <tr>
+                            <td>Redis Session & Cache</td>
+                            <td><code>REDIS_URL / Memory Fallback</code></td>
+                            <td><span class="badge bg-info">{{ redis_status }}</span></td>
+                            <td>Rate limit & caching layer</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Server Modal -->
+<div class="modal fade" id="registerServerModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold"><i class="fas fa-plus-circle text-primary me-2"></i>Register Backend Server Instance</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('admin.register_new_server') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Server Unique ID</label>
+                        <input type="text" name="server_id" class="form-control bg-secondary bg-opacity-25 text-white border-secondary" placeholder="e.g. srv-render-asia-2" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">Server Display Name</label>
+                        <input type="text" name="name" class="form-control bg-secondary bg-opacity-25 text-white border-secondary" placeholder="e.g. VKShop Secondary Render Node" required>
+                    </div>
+                    <div class="row g-3 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-secondary">Provider</label>
+                            <select name="provider" class="form-select bg-secondary bg-opacity-25 text-white border-secondary">
+                                <option value="Render">Render</option>
+                                <option value="AWS">AWS</option>
+                                <option value="Self-Hosted">Self-Hosted</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary">Region</label>
+                            <input type="text" name="region" class="form-control bg-secondary bg-opacity-25 text-white border-secondary" value="India">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-secondary">API Endpoint URL</label>
+                        <input type="url" name="api_endpoint" class="form-control bg-secondary bg-opacity-25 text-white border-secondary" placeholder="https://vkshop-node2.onrender.com" required>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4">Register Server</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

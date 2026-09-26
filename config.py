@@ -93,17 +93,18 @@ class Config:
     # Rate Limiting Settings
     RATELIMIT_STORAGE_URI = os.environ.get('REDIS_URL', 'memory://')
     
-    # Provider-Agnostic Storage Settings (compatible with MinIO, R2, S3, Supabase, B2)
+    # Standard S3 / MinIO Credentials (Compatible with AWS S3, Cloudflare R2, MinIO, Supabase, B2)
+    MINIO_ENDPOINT = os.environ.get('S3_ENDPOINT') or os.environ.get('MINIO_ENDPOINT')
+    MINIO_ACCESS_KEY = os.environ.get('S3_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID') or os.environ.get('MINIO_ACCESS_KEY')
+    MINIO_SECRET_KEY = os.environ.get('S3_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY') or os.environ.get('MINIO_SECRET_KEY')
+    MINIO_BUCKET_NAME = os.environ.get('S3_BUCKET') or os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
+    MINIO_REGION = os.environ.get('S3_REGION') or os.environ.get('AWS_REGION', 'us-east-1')
+    MINIO_SECURE = os.environ.get('MINIO_SECURE', 'True' if ENV == 'production' else 'False').lower() in ('true', '1', 't')
+    
+    # Provider-Agnostic Storage Settings
     STORAGE_PROVIDER = os.environ.get('STORAGE_PROVIDER', 's3')
     STORAGE_PUBLIC_URL = os.environ.get('STORAGE_PUBLIC_URL', '').rstrip('/')
     ALLOW_LOCAL_STORAGE_FALLBACK = os.environ.get('ALLOW_LOCAL_STORAGE_FALLBACK', 'False' if ENV == 'production' else 'True').lower() in ('true', '1', 't')
-    
-    # MinIO / S3 Credentials (Backward compatible)
-    MINIO_ENDPOINT = os.environ.get('MINIO_ENDPOINT')
-    MINIO_ACCESS_KEY = os.environ.get('MINIO_ACCESS_KEY')
-    MINIO_SECRET_KEY = os.environ.get('MINIO_SECRET_KEY')
-    MINIO_BUCKET_NAME = os.environ.get('MINIO_BUCKET_NAME', 'ecom-uploads')
-    MINIO_SECURE = os.environ.get('MINIO_SECURE', 'False').lower() in ('true', '1', 't')
     
     # Image Optimization Configuration
     IMAGE_MAX_WIDTH = int(os.environ.get('IMAGE_MAX_WIDTH', 1600))

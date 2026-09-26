@@ -8,11 +8,12 @@ logger = logging.getLogger('monitoring')
 monitoring_bp = Blueprint('monitoring', __name__)
 
 @monitoring_bp.route('/health')
+@monitoring_bp.route('/live')
 def health_check():
     """
     Ultra-lightweight Liveness Probe.
-    Returns HTTP 200 OK immediately without DB or R2 I/O.
-    Ensures Render health check never fails due to transient network latency.
+    Returns HTTP 200 OK immediately without DB or S3 I/O.
+    Ensures health check probes never fail due to network or DB latency.
     """
     return jsonify({'status': 'healthy'}), 200
 
@@ -20,10 +21,11 @@ def health_check():
 def readiness_check():
     """
     Readiness Probe for dependency diagnosis.
-    Safely checks Database, R2 Storage, and Redis with bounded timeouts.
+    Safely checks Database, Object Storage, and Redis with bounded timeouts.
     """
     status = {
         'status': 'ok',
+        'server_id': current_app.config.get('SERVER_ID', 'srv-node-1'),
         'database': 'unknown',
         'redis': 'unknown',
         'storage': 'unknown'
@@ -41,39 +43,37 @@ def readiness_check():
         logger.warning(f"[READINESS] Database check failed: {e}")
 
     # 2. Redis connection check
-    if current_app.config.get('SESSION_TYPE') == 'redis':
-        try:
-            redis_client = current_app.config.get('SESSION_REDIS')
-            if redis_client:
-                redis_client.ping()
-                status['redis'] = 'connected'
-            else:
-                status['redis'] = 'not_configured'
-                status['status'] = 'degraded'
-                is_degraded = True
-        except Exception as e:
-            status['redis'] = f"error: {str(e)}"
-            status['status'] = 'degraded'
-            is_degraded = True
+    from services.redis_service import redis_service
+    if redis_service.is_available():
+        status['redis'] = 'connected'
     else:
-        status['redis'] = 'disabled'
+        status['redis'] = 'in_memory_fallback'
 
-    # 3. Object Storage check (Lightweight client initialization check)
-    if current_app.config.get('MINIO_ENDPOINT') or current_app.config.get('STORAGE_PROVIDER') == 's3':
-        try:
-            if storage_service.is_available():
-                status['storage'] = 'connected'
-            else:
-                status['storage'] = 'not_configured'
-                status['status'] = 'degraded'
-                is_degraded = True
-        except Exception as e:
-            status['storage'] = f"error: {str(e)}"
-            status['status'] = 'degraded'
-            is_degraded = True
+    # 3. Object Storage check
+    if storage_service.is_available():
+        status['storage'] = 'connected'
     else:
-        status['storage'] = 'disabled'
+        status['storage'] = 'not_configured'
 
-    code = 200 if not is_degraded else 200  # Always return 200 with JSON payload so diagnostics can be inspected
+    code = 200
     return jsonify(status), code
+
+@monitoring_bp.route('/api/server/heartbeat', methods=['POST'])
+def server_heartbeat_api():
+    """Endpoint for backend nodes to send periodic telemetry metrics."""
+    data = request.get_json(silent=True) or {}
+    srv_id = data.get('server_id') or current_app.config.get('SERVER_ID', 'srv-node-1')
+    
+    from services.server_registry import server_registry
+    server_registry.record_heartbeat(
+        server_id=srv_id,
+        cpu_usage=data.get('cpu_usage', 0.0),
+        memory_usage=data.get('memory_usage', 0.0),
+        active_requests=data.get('active_requests', 0),
+        requests_per_min=data.get('requests_per_min', 0),
+        avg_latency_ms=data.get('avg_latency_ms', 0.0),
+        error_rate=data.get('error_rate', 0.0)
+    )
+    return jsonify({'success': True, 'message': 'Heartbeat recorded.'}), 200
+
 
