@@ -1816,4 +1816,26 @@ table, .table {
     }
 }
 
+/* Red Color Dot Notification Indicator */
+.notif-red-dot {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 10px;
+    height: 10px;
+    background-color: #ef4444;
+    border-radius: 50%;
+    border: 2px solid var(--bg-secondary, #ffffff);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.9);
+    animation: pulse-red-dot 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 20;
+    pointer-events: none;
+}
+
+@keyframes pulse-red-dot {
+    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
+    70% { transform: scale(1.25); box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
 

@@ -370,6 +370,45 @@ def add_product():
                 db.session.commit()
             
         log_audit("ADD_PRODUCT", f"Added product: {name} SKU: {sku}")
+
+        # Send Real-Time Web & Push Notifications for New Product
+        try:
+            from models import Notification, User
+            notif_title = f"New Product Added: {name}"
+            notif_msg = f"Store '{store.name}' just listed a new product: '{name}' for INR {offer_price}."
+            
+            # Save Notification records in DB for all active users (customers & admins)
+            active_users = User.query.filter(User.is_active == True, User.id != current_user.id).all()
+            if active_users:
+                notif_objs = [
+                    Notification(user_id=u.id, title=notif_title, message=notif_msg, type='product')
+                    for u in active_users
+                ]
+                db.session.bulk_save_objects(notif_objs)
+                db.session.commit()
+
+            # Broadcast real-time SocketIO push event
+            from app import socketio
+            socketio.emit('new_product_notification', {
+                'title': notif_title,
+                'message': notif_msg,
+                'type': 'product',
+                'product_id': prod.id,
+                'product_name': prod.name,
+                'product_slug': prod.slug,
+                'store_name': store.name,
+                'price': offer_price,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            socketio.emit('notification', {
+                'title': notif_title,
+                'message': notif_msg,
+                'type': 'product',
+                'timestamp': datetime.utcnow().isoformat()
+            })
+        except Exception as notif_err:
+            current_app.logger.warning(f"Failed to dispatch new product notifications: {notif_err}")
+
         flash("Product added successfully. Now add variants.", "success")
         return redirect(url_for('seller.edit_product', prod_id=prod.id))
         

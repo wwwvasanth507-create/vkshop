@@ -209,3 +209,48 @@ def generate_presigned_upload():
         'public_url': storage_service.get_public_url(key)
     })
 
+
+# ----------------- NOTIFICATION APIS -----------------
+@api_bp.route('/notifications/unread-count', methods=['GET'])
+def unread_notifications_count():
+    """Return the unread notification count and indicator status for logged in user."""
+    if not current_user.is_authenticated:
+        return jsonify({'success': True, 'unread_count': 0, 'has_unread': False})
+    
+    from models import Notification
+    count = Notification.query.filter_by(user_id=current_user.id, is_read=False).count()
+    return jsonify({
+        'success': True,
+        'unread_count': count,
+        'has_unread': count > 0
+    })
+
+@api_bp.route('/notifications/mark-read', methods=['POST'])
+def mark_notifications_read():
+    """Mark all unread notifications as read for current user."""
+    if not current_user.is_authenticated:
+        return jsonify({'success': False, 'message': 'Unauthenticated'}), 401
+        
+    from models import Notification
+    Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    return jsonify({'success': True, 'message': 'Notifications marked as read'})
+
+@api_bp.route('/notifications/latest', methods=['GET'])
+def latest_notifications():
+    """Return latest 15 notifications for current user."""
+    if not current_user.is_authenticated:
+        return jsonify({'success': True, 'notifications': []})
+        
+    from models import Notification
+    notifs = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).limit(15).all()
+    res = [{
+        'id': n.id,
+        'title': n.title,
+        'message': n.message,
+        'type': n.type,
+        'is_read': n.is_read,
+        'created_at': n.created_at.strftime('%b %d, %Y %I:%M %p')
+    } for n in notifs]
+    return jsonify({'success': True, 'notifications': res})
+

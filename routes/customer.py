@@ -791,3 +791,12 @@ def file_complaint(order_id):
         return redirect(url_for('customer.order_detail', order_id=order.id))
         
     return render_template('customer/file_complaint.html', order=order)
+
+@customer_bp.route('/notifications')
+def notifications_page():
+    from models import Notification
+    notifs = Notification.query.filter_by(user_id=current_user.id).order_by(Notification.created_at.desc()).all()
+    # Mark as read
+    Notification.query.filter_by(user_id=current_user.id, is_read=False).update({'is_read': True})
+    db.session.commit()
+    return render_template('customer/notifications.html', notifications=notifs)

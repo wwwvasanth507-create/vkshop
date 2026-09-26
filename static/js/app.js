@@ -21,40 +21,48 @@ function initSocketIO() {
                 console.warn('Socket.IO connection warning:', err.message);
             });
         
+        socket.on('new_product_notification', function(data) {
+            // Show red color dot badge on notification bell
+            showRedDotBadge();
+            // Show toast notification
+            showNotification(data.title || 'New Product Added', data.message, 'info');
+            // Trigger native browser push notification
+            triggerNativePushNotification(data.title || 'New Product Added', data.message);
+        });
+
         socket.on('notification', function(data) {
-            // Show notification toast
+            showRedDotBadge();
             showNotification(data.title, data.message, data.type);
+            triggerNativePushNotification(data.title, data.message);
         });
         
         socket.on('order_update', function(data) {
-            // Refresh order sections
+            showRedDotBadge();
+            showNotification('Order Status Update', `Order ${data.order_number} is now ${data.status}`, 'info');
+            triggerNativePushNotification('Order Update', `Order ${data.order_number} is now ${data.status}`);
             if (document.querySelector('[data-order-row-id="' + data.order_id + '"]')) {
-                // Update the order status without full refresh
                 console.log('Order updated:', data.order_number, data.status);
             }
         });
         
         socket.on('commission_update', function(data) {
-            showNotification('Commission Update', 
-                `Commission status changed to: ${data.status}`, 'alert');
+            showRedDotBadge();
+            showNotification('Commission Update', `Commission status changed to: ${data.status}`, 'alert');
+            triggerNativePushNotification('Commission Update', `Commission status changed to: ${data.status}`);
         });
         
         socket.on('analytics_update', function(data) {
-            // Refresh charts if on analytics page
             if (document.getElementById('analytics-sales-chart')) {
                 fetchWeeklySalesData();
             }
         });
         
         socket.on('settings_update', function(data) {
-            showNotification('Settings Updated', 
-                'Global settings have been changed by admin.', 'info');
+            showNotification('Settings Updated', 'Global settings have been changed by admin.', 'info');
         });
         
         socket.on('force_logout', function(data) {
-            // Session has been terminated by main admin (blocked/deleted)
             showNotification('Session Terminated', data.reason || 'Your session has been terminated by the Main Admin.', 'alert');
-            // Redirect to logout after a short delay
             setTimeout(function() {
                 window.location.href = '/logout';
             }, 2000);
@@ -69,15 +77,121 @@ function initSocketIO() {
     }
 }
 
+// Show Red Color Dot Badge on Notification Bell
+function showRedDotBadge() {
+    const redDot = document.getElementById('notif-red-dot');
+    if (redDot) {
+        redDot.style.display = 'block';
+    }
+}
+
+// Hide Red Color Dot Badge
+function hideRedDotBadge() {
+    const redDot = document.getElementById('notif-red-dot');
+    if (redDot) {
+        redDot.style.display = 'none';
+    }
+}
+
+// Fetch unread status on page load
+function checkUnreadNotifications() {
+    const redDot = document.getElementById('notif-red-dot');
+    if (!redDot) return;
+
+    fetch('/api/notifications/unread-count')
+        .then(r => r.json())
+        .then(data => {
+            if (data.has_unread) {
+                showRedDotBadge();
+            } else {
+                hideRedDotBadge();
+            }
+        })
+        .catch(err => console.debug('Unread count check skipped:', err));
+}
+
+// Native Browser Push Notification Trigger
+function triggerNativePushNotification(title, message) {
+    if (!("Notification" in window)) return;
+    
+    if (Notification.permission === "granted") {
+        try {
+            new Notification(title, {
+                body: message,
+                icon: '/static/logo.jpeg'
+            });
+        } catch (e) {
+            console.debug('Web push trigger error:', e);
+        }
+    } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+            if (permission === "granted") {
+                try {
+                    new Notification(title, {
+                        body: message,
+                        icon: '/static/logo.jpeg'
+                    });
+                } catch (e) {}
+            }
+        });
+    }
+}
+
+// Render Toast Notification
 function showNotification(title, message, type) {
-    // Disabled globally per user request
-    return;
+    let container = document.getElementById('toast-notification-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-notification-container';
+        container.style.cssText = 'position: fixed; bottom: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; max-width: 360px; width: 100%; pointer-events: none;';
+        document.body.appendChild(container);
+    }
+
+    const toast = document.createElement('div');
+    toast.style.cssText = 'background: rgba(15, 23, 42, 0.92); color: #ffffff; padding: 14px 18px; border-radius: 12px; backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3); font-family: sans-serif; pointer-events: auto; opacity: 0; transform: translateY(20px); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); border-left: 4px solid ' + (type === 'alert' ? '#ef4444' : (type === 'product' ? '#3b82f6' : '#10b981')) + ';';
+
+    toast.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
+            <div style="font-weight: 700; font-size: 0.95rem; color: #60a5fa;">${title}</div>
+            <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1rem; padding: 0;">&times;</button>
+        </div>
+        <div style="font-size: 0.85rem; color: #e2e8f0; margin-top: 4px; line-height: 1.4;">${message}</div>
+    `;
+
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateY(0)';
+    });
+
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 6000);
 }
 
 // Rest of existing app.js code...
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Socket.IO
     initSocketIO();
+    
+    // Check unread notifications and request push permission
+    checkUnreadNotifications();
+    if ("Notification" in window && Notification.permission === "default") {
+        Notification.requestPermission();
+    }
+
+    // Add click handler to notification bell to mark read
+    const notifBell = document.getElementById('nav-notif-bell');
+    if (notifBell) {
+        notifBell.addEventListener('click', function() {
+            hideRedDotBadge();
+            fetch('/api/notifications/mark-read', { method: 'POST', headers: { 'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.content || '' } })
+                .catch(e => console.debug('Mark read error:', e));
+        });
+    }
     
     // Theme toggle
     const themeToggle = document.getElementById('theme-toggle');

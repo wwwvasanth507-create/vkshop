@@ -206,6 +206,13 @@
                 </a>
                 
                 {% if current_user.is_authenticated %}
+                    <div style="position: relative; display: inline-block;">
+                        <a href="{{ url_for('customer.notifications_page') }}" class="nav-btn" id="nav-notif-bell" title="Notifications" aria-label="Notifications">
+                            <i class="fa-solid fa-bell"></i> <span class="nav-text">Notifications</span>
+                            <span id="notif-red-dot" class="notif-red-dot" style="display: none;"></span>
+                        </a>
+                    </div>
+
                     <a href="{{ url_for('customer.view_cart') }}" class="nav-btn">
                         <i class="fa-solid fa-cart-shopping"></i> <span class="nav-text">Cart</span>
                         <span id="cart-badge" class="badge" style="display: none;">0</span>
