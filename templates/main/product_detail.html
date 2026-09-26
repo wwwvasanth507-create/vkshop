@@ -62,9 +62,9 @@
                 {% if product.is_out_of_stock %}
                     <span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> Out of Stock</span>
                 {% elif product.variants %}
-                    <span style="color: var(--success);">Select variant to view availability</span>
+                    <span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> In Stock — Select variant options or buy base product directly</span>
                 {% else %}
-                    <span style="color: var(--success);">In Stock ({{ product.stock }} items)</span>
+                    <span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> In Stock ({{ product.stock }} items)</span>
                 {% endif %}
             </div>
             
@@ -91,10 +91,19 @@
         {% else %}
             {% if product.variants %}
             <div style="margin-bottom: 2rem;">
-                <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 1rem;">Select Specifications</h4>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h4 style="font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin: 0;">Select Specifications (Optional)</h4>
+                    <button type="button" id="clear-variant-selection" class="btn btn-sm btn-secondary" style="display: none; font-size: 0.8rem; padding: 0.25rem 0.6rem;">
+                        <i class="fa-solid fa-rotate-left"></i> Clear Selection (Buy Base Product)
+                    </button>
+                </div>
                 
                 <!-- Hidden Fields for Tracking Selection -->
-                <input type="hidden" id="variant-product-id" value="{{ product.id }}">
+                <input type="hidden" id="variant-product-id" value="{{ product.id }}"
+                       data-base-price="{{ product.offer_price|round(2) }}"
+                       data-base-stock="{{ product.stock }}"
+                       data-base-sku="{{ product.sku }}"
+                       data-base-image="{{ resolve_image_url(product.main_image, default_category='products') }}">
                 
                 {% set colors = [] %}
                 {% set sizes = [] %}
@@ -173,8 +182,8 @@
                     </select>
                 </div>
                 
-                <button type="submit" id="add-to-cart-btn" class="btn btn-primary cart-buy-btn" style="flex: 1; min-width: 160px; padding: 0.9rem 1rem;" {% if product.variants %}disabled{% endif %}>
-                    {% if product.variants %}Select attributes to buy{% else %}Add to Cart{% endif %}
+                <button type="submit" id="add-to-cart-btn" class="btn btn-primary cart-buy-btn" style="flex: 1; min-width: 160px; padding: 0.9rem 1rem;" {% if product.is_out_of_stock %}disabled{% endif %}>
+                    {% if product.is_out_of_stock %}Out of Stock{% else %}Add to Cart{% endif %}
                 </button>
                 
                 <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">

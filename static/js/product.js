@@ -48,25 +48,45 @@ function initZoomEffect() {
 // Dynamic variant combinations selector
 function initVariantSelector() {
     const pills = document.querySelectorAll('.variant-pill');
+    const clearBtn = document.getElementById('clear-variant-selection');
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', () => {
+            document.querySelectorAll('.variant-pill').forEach(p => p.classList.remove('active'));
+            updateVariantInfo();
+        });
+    }
+
     if (!pills.length) return;
 
     pills.forEach(pill => {
         pill.addEventListener('click', () => {
             const parent = pill.parentElement;
-            // Unselect sibling pills
-            parent.querySelectorAll('.variant-pill').forEach(p => p.classList.remove('active'));
-            pill.classList.add('active');
+            // Toggle active pill selection
+            if (pill.classList.contains('active')) {
+                pill.classList.remove('active');
+            } else {
+                parent.querySelectorAll('.variant-pill').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+            }
 
             updateVariantInfo();
         });
     });
 }
 
-// Fetch corresponding details for selected attributes
+// Fetch corresponding details for selected attributes or fall back to base product
 function updateVariantInfo() {
     const prodIdInput = document.getElementById('variant-product-id');
     if (!prodIdInput) return;
     const productId = prodIdInput.value;
+    
+    const basePrice = prodIdInput.getAttribute('data-base-price');
+    const baseStock = prodIdInput.getAttribute('data-base-stock');
+    const baseSku = prodIdInput.getAttribute('data-base-sku');
+    const baseImage = prodIdInput.getAttribute('data-base-image');
+
+    const clearBtn = document.getElementById('clear-variant-selection');
     
     // Read currently active attributes
     const colorPill = document.querySelector('.variant-group[data-attr="color"] .variant-pill.active');
@@ -79,6 +99,32 @@ function updateVariantInfo() {
     const ram = ramPill ? ramPill.getAttribute('data-val') : '';
     const storage = storagePill ? storagePill.getAttribute('data-val') : '';
 
+    const priceEl = document.getElementById('detail-offer-price');
+    const stockEl = document.getElementById('detail-stock-count');
+    const skuEl = document.getElementById('detail-sku');
+    const addToCartBtn = document.getElementById('add-to-cart-btn');
+    const variantIdInput = document.getElementById('selected-variant-id');
+    const mainImg = document.getElementById('main-image-el');
+
+    // If no attributes selected, show base product details
+    if (!color && !size && !ram && !storage) {
+        if (clearBtn) clearBtn.style.display = 'none';
+        if (variantIdInput) variantIdInput.value = '';
+        if (priceEl && basePrice) priceEl.textContent = `INR ${parseFloat(basePrice).toFixed(2)}`;
+        if (skuEl && baseSku) skuEl.textContent = `SKU: ${baseSku}`;
+        if (mainImg && baseImage) mainImg.src = baseImage;
+        if (stockEl) {
+            stockEl.innerHTML = '<span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> In Stock — Base product selected</span>';
+        }
+        if (addToCartBtn) {
+            addToCartBtn.disabled = false;
+            addToCartBtn.textContent = 'Add to Cart';
+        }
+        return;
+    }
+
+    if (clearBtn) clearBtn.style.display = 'inline-flex';
+
     const params = new URLSearchParams({
         product_id: productId,
         color: color,
@@ -90,41 +136,51 @@ function updateVariantInfo() {
     fetch(`/api/product-variant-details?${params.toString()}`)
         .then(res => res.json())
         .then(data => {
-            const priceEl = document.getElementById('detail-offer-price');
-            const stockEl = document.getElementById('detail-stock-count');
-            const skuEl = document.getElementById('detail-sku');
-            const addToCartBtn = document.getElementById('add-to-cart-btn');
-            const variantIdInput = document.getElementById('selected-variant-id');
-            const mainImg = document.getElementById('main-image-el');
-
             if (data.success) {
-                // Update display price, stock status
-                priceEl.textContent = `INR ${data.price.toFixed(2)}`;
-                stockEl.textContent = `${data.stock} items remaining`;
-                skuEl.textContent = `SKU: ${data.sku}`;
-                variantIdInput.value = data.variant_id;
-
-                if (data.stock > 0) {
-                    addToCartBtn.disabled = false;
-                    addToCartBtn.textContent = "Add to Cart";
+                if (data.is_base) {
+                    variantIdInput.value = '';
+                    if (priceEl) priceEl.textContent = `INR ${data.price.toFixed(2)}`;
+                    if (stockEl) stockEl.innerHTML = `<span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> In Stock — Base product selected</span>`;
+                    if (skuEl) skuEl.textContent = `SKU: ${data.sku}`;
+                    if (addToCartBtn) {
+                        addToCartBtn.disabled = false;
+                        addToCartBtn.textContent = 'Add to Cart';
+                    }
                 } else {
-                    addToCartBtn.disabled = true;
-                    addToCartBtn.textContent = "Out of Stock";
-                }
+                    variantIdInput.value = data.variant_id;
+                    if (priceEl) priceEl.textContent = `INR ${data.price.toFixed(2)}`;
+                    if (skuEl) skuEl.textContent = `SKU: ${data.sku}`;
+                    
+                    if (data.stock > 0) {
+                        if (stockEl) stockEl.innerHTML = `<span style="color: var(--success);"><i class="fa-solid fa-circle-check"></i> Variant In Stock (${data.stock} available)</span>`;
+                        if (addToCartBtn) {
+                            addToCartBtn.disabled = false;
+                            addToCartBtn.textContent = 'Add to Cart';
+                        }
+                    } else {
+                        if (stockEl) stockEl.innerHTML = `<span style="color: var(--danger);"><i class="fa-solid fa-circle-exclamation"></i> Variant Out of Stock</span>`;
+                        if (addToCartBtn) {
+                            addToCartBtn.disabled = true;
+                            addToCartBtn.textContent = 'Variant Out of Stock';
+                        }
+                    }
 
-                // If variant has specific image, swap main gallery image
-                if (data.image_url) {
-                    mainImg.src = data.image_url;
-                } else if (data.image_path) {
-                    mainImg.src = (data.image_path.startsWith('http') || data.image_path.startsWith('/')) ? data.image_path : `/static/uploads/${data.image_path}`;
+                    if (data.image_url) {
+                        mainImg.src = data.image_url;
+                    }
                 }
             } else {
-                priceEl.textContent = "Unavailable";
-                stockEl.textContent = "Selected variant options are out of stock";
-                addToCartBtn.disabled = true;
-                addToCartBtn.textContent = "Unavailable Selection";
-                variantIdInput.value = "";
+                // If combination is not found, allow purchasing base product
+                variantIdInput.value = '';
+                if (stockEl) {
+                    stockEl.innerHTML = `<span style="color: var(--warning);"><i class="fa-solid fa-circle-info"></i> Combination unavailable — base product selected</span>`;
+                }
+                if (priceEl && basePrice) priceEl.textContent = `INR ${parseFloat(basePrice).toFixed(2)}`;
+                if (addToCartBtn) {
+                    addToCartBtn.disabled = false;
+                    addToCartBtn.textContent = 'Add to Cart (Base Product)';
+                }
             }
         })
-        .catch(err => console.error("Error updating variant details:", err));
+        .catch(err => console.error('Error updating variant details:', err));
 }

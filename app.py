@@ -38,7 +38,7 @@ def clear_categories_cache():
     _categories_cache = None
 
 def monkeypatch_file_storage():
-    """Intercept all uploads, apply image optimization, and upload to S3/Object storage."""
+    """Intercept all uploads across all routes/users, apply image compression, and save to server disk / S3."""
     from werkzeug.datastructures import FileStorage
     from flask import current_app
     import logging
@@ -46,34 +46,39 @@ def monkeypatch_file_storage():
     logger = logging.getLogger('storage')
     original_save = FileStorage.save
     
+    IMAGE_EXTENSIONS = ('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif', '.tiff', '.jfif', '.heic', '.avif')
+    
     def patched_save(self, dst, buffer_size=16384):
         normalized_dst = os.path.abspath(dst)
         uploads_dir = os.path.abspath(current_app.config.get('UPLOAD_FOLDER'))
+        
+        content_type = getattr(self, 'content_type', '') or ''
+        filename = getattr(self, 'filename', '') or ''
+        is_image = content_type.startswith('image/') or any(
+            (filename or dst).lower().endswith(ext) for ext in IMAGE_EXTENSIONS
+        )
+        
+        from services.storage import storage_service, optimize_image_bytes
         
         if normalized_dst.startswith(uploads_dir):
             rel_path = os.path.relpath(normalized_dst, uploads_dir)
             object_name = rel_path.replace('\\', '/')
             
-            from services.storage import storage_service, optimize_image_bytes
-            
             if storage_service.is_available():
                 self.stream.seek(0)
-                content_type = self.content_type or ''
-                
-                # If uploaded file is an image, attempt Pillow optimization
-                if content_type.startswith('image/') or any(object_name.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.webp', '.bmp']):
+                if is_image:
                     try:
                         raw_bytes = self.stream.read()
                         self.stream.seek(0)
-                        opt_bytes, opt_mime, opt_ext = optimize_image_bytes(raw_bytes)
-                        storage_service.upload_bytes(opt_bytes, object_name, content_type=opt_mime)
-                        logger.info(f"Optimized image upload: {object_name} ({len(raw_bytes)} -> {len(opt_bytes)} bytes)")
-                        return
+                        if len(raw_bytes) > 0:
+                            opt_bytes, opt_mime, opt_ext = optimize_image_bytes(raw_bytes)
+                            storage_service.upload_bytes(opt_bytes, object_name, content_type=opt_mime)
+                            logger.info(f"[COMPRESSED S3 UPLOAD] {object_name} ({len(raw_bytes)} -> {len(opt_bytes)} bytes)")
+                            return
                     except Exception as err:
-                        logger.warning(f"Image optimization skipped for {object_name}, uploading raw stream: {err}")
+                        logger.warning(f"[S3 UPLOAD] Image optimization skipped for {object_name}, uploading raw stream: {err}")
                         self.stream.seek(0)
                 
-                # Upload raw stream for non-image files or if optimization skipped
                 storage_service.upload_file_stream(self.stream, object_name, content_type=self.content_type)
                 return
             else:
@@ -82,8 +87,25 @@ def monkeypatch_file_storage():
                     error_msg = f"Persistent object storage is unavailable and ALLOW_LOCAL_STORAGE_FALLBACK is disabled. Failed to save {object_name}."
                     logger.error(error_msg)
                     raise RuntimeError(error_msg)
-                logger.warning(f"S3 Object storage unavailable. Using local fallback for {object_name}.")
-                
+                logger.warning(f"S3 Object storage unavailable. Using compressed local fallback for {object_name}.")
+
+        # If saving to local server disk, compress image before writing to disk
+        if is_image:
+            try:
+                self.stream.seek(0)
+                raw_bytes = self.stream.read()
+                self.stream.seek(0)
+                if len(raw_bytes) > 0:
+                    opt_bytes, opt_mime, opt_ext = optimize_image_bytes(raw_bytes)
+                    os.makedirs(os.path.dirname(normalized_dst), exist_ok=True)
+                    with open(normalized_dst, 'wb') as f:
+                        f.write(opt_bytes)
+                    logger.info(f"[COMPRESSED LOCAL UPLOAD] Saved {normalized_dst} ({len(raw_bytes)} -> {len(opt_bytes)} bytes)")
+                    return
+            except Exception as err:
+                logger.warning(f"[LOCAL UPLOAD] Local image optimization skipped for {dst}: {err}")
+                self.stream.seek(0)
+
         original_save(self, dst, buffer_size)
         
     FileStorage.save = patched_save
@@ -365,9 +387,15 @@ def create_app():
             abort(404)
 
             
-    # 13. Sync uploads on startup if explicitly enabled
-    if os.environ.get('SYNC_ON_STARTUP', 'False').lower() in ('true', '1', 't'):
-        with app.app_context():
+    # 13. Compress existing local images & sync uploads on startup
+    with app.app_context():
+        try:
+            from services.storage import compress_existing_local_images
+            compress_existing_local_images()
+        except Exception as e:
+            app.logger.warning(f"Startup image compression skipped: {e}")
+            
+        if os.environ.get('SYNC_ON_STARTUP', 'False').lower() in ('true', '1', 't'):
             try:
                 from services.storage import sync_local_uploads_to_minio
                 sync_local_uploads_to_minio()

@@ -34,6 +34,21 @@ def variant_details():
     ram = request.args.get('ram', '').strip()
     storage = request.args.get('storage', '').strip()
     
+    if not (color or size or ram or storage):
+        product = Product.query.get(prod_id)
+        if product:
+            from services.storage import resolve_image_url
+            stock_count = product.stock if (product.stock and product.stock > 0) else sum((v.stock or 0) for v in product.variants)
+            return jsonify({
+                'success': True,
+                'is_base': True,
+                'variant_id': None,
+                'price': product.offer_price,
+                'stock': stock_count,
+                'sku': product.sku,
+                'image_url': resolve_image_url(product.main_image, default_category='products')
+            })
+
     query = ProductVariant.query.filter_by(product_id=prod_id)
     if color:
         query = query.filter_by(color=color)
@@ -49,6 +64,7 @@ def variant_details():
         from services.storage import resolve_image_url
         return jsonify({
             'success': True,
+            'is_base': False,
             'variant_id': variant.id,
             'price': variant.price,
             'stock': variant.stock,

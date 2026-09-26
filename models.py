@@ -448,10 +448,10 @@ class Product(db.Model):
 
     @property
     def is_out_of_stock(self):
-        """Return True if the product has no available stock (considering variants)."""
-        if self.variants:
-            return all((v.stock or 0) <= 0 for v in self.variants)
-        return (self.stock or 0) <= 0
+        """Return True if neither base product stock nor any variant stock is available."""
+        has_base_stock = (self.stock or 0) > 0
+        has_variant_stock = any((v.stock or 0) > 0 for v in self.variants) if self.variants else False
+        return not (has_base_stock or has_variant_stock)
 
     @property
     def main_image(self):

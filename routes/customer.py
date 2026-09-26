@@ -181,17 +181,27 @@ def add_to_cart():
     
     product = Product.query.get_or_404(product_id)
     
-    # Check if product is out of stock
+    # Check if product is completely out of stock
     if product.is_out_of_stock:
         flash(f"Sorry, '{product.name}' is currently out of stock and cannot be added to cart.", "danger")
-        return redirect(request.referrer)
+        return redirect(request.referrer or url_for('main.product_detail', slug=product.slug))
     
     # Check variant stock if applicable
     if variant_id:
-        variant = ProductVariant.query.filter_by(id=variant_id, product_id=product_id).first_or_404()
-        if variant.stock < qty:
-            flash(f"Insufficient stock. Only {variant.stock} available.", "danger")
-            return redirect(request.referrer)
+        variant = ProductVariant.query.filter_by(id=variant_id, product_id=product_id).first()
+        if not variant or (variant.stock or 0) < qty:
+            avail = variant.stock if variant else 0
+            flash(f"Insufficient stock for selected variant. Only {avail} available.", "danger")
+            return redirect(request.referrer or url_for('main.product_detail', slug=product.slug))
+    else:
+        # Customer is buying base product directly (no variant selected)
+        base_stock = product.stock or 0
+        if base_stock < qty:
+            total_variant_stock = sum((v.stock or 0) for v in product.variants) if product.variants else 0
+            effective_stock = max(base_stock, total_variant_stock)
+            if effective_stock < qty:
+                flash(f"Sorry, '{product.name}' has insufficient stock. Only {effective_stock} available.", "danger")
+                return redirect(request.referrer or url_for('main.product_detail', slug=product.slug))
     
     # Check if item already exists in cart
     existing_item = CartItem.query.filter_by(

@@ -630,3 +630,44 @@ def sync_local_uploads_to_minio():
                     logger.error(f"[SYNC] Failed to sync {object_name}: {e}")
                     
     logger.info(f"Local uploads sync complete. Synced {count} file(s).")
+
+
+def compress_existing_local_images():
+    """
+    Scan local 'static/uploads' folder and compress any raw uncompressed images in-place.
+    Guarantees all pre-existing server images are stored compressed.
+    """
+    try:
+        uploads_dir = current_app.config.get('UPLOAD_FOLDER')
+    except Exception:
+        uploads_dir = None
+
+    if not uploads_dir or not os.path.exists(uploads_dir):
+        return
+
+    IMAGE_EXTS = ('.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.jfif', '.heic', '.webp')
+    count = 0
+    total_saved_bytes = 0
+
+    for root, _, files in os.walk(uploads_dir):
+        for file in files:
+            ext = os.path.splitext(file)[1].lower()
+            if ext in IMAGE_EXTS:
+                local_path = os.path.join(root, file)
+                try:
+                    size_before = os.path.getsize(local_path)
+                    if size_before == 0:
+                        continue
+                    with open(local_path, 'rb') as f:
+                        raw_bytes = f.read()
+                    opt_bytes, opt_mime, opt_ext = optimize_image_bytes(raw_bytes)
+                    if len(opt_bytes) < size_before:
+                        with open(local_path, 'wb') as f:
+                            f.write(opt_bytes)
+                        count += 1
+                        total_saved_bytes += (size_before - len(opt_bytes))
+                except Exception as e:
+                    logger.debug(f"[COMPRESS_EXISTING] Skipped {file}: {e}")
+
+    if count > 0:
+        logger.info(f"[IMAGE COMPRESSION BATCH] Compressed {count} existing image(s) on disk, saved {total_saved_bytes // 1024} KB.")
