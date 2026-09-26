@@ -477,11 +477,11 @@ def resolve_image_url(value: Optional[str], default_category: Optional[str] = No
         return '/static/uploads/placeholder.jpg'
 
     s = str(value).strip()
-    if not s:
+    if not s or s in ('placeholder.jpg', '/static/uploads/placeholder.jpg', 'static/uploads/placeholder.jpg'):
         return '/static/uploads/placeholder.jpg'
 
     key = normalize_storage_key(s)
-    if not key:
+    if not key or key == 'placeholder.jpg':
         return '/static/uploads/placeholder.jpg'
 
     # If key is an external non-R2 HTTP(S) URL, return it

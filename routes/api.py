@@ -12,7 +12,7 @@ def search_suggestions():
     if not q:
         return jsonify([])
         
-    # Query database for matching product names
+    from services.storage import resolve_image_url
     products = Product.query.filter(Product.name.like(f"%{q}%"), Product.is_active == True).limit(5).all()
     results = []
     
@@ -21,7 +21,7 @@ def search_suggestions():
             'label': p.name,
             'slug': p.slug,
             'price': p.offer_price,
-            'image': p.main_image
+            'image_url': resolve_image_url(p.main_image, default_category='products')
         })
         
     return jsonify(results)
@@ -46,13 +46,14 @@ def variant_details():
         
     variant = query.first()
     if variant:
+        from services.storage import resolve_image_url
         return jsonify({
             'success': True,
             'variant_id': variant.id,
             'price': variant.price,
             'stock': variant.stock,
             'sku': variant.sku,
-            'image_path': variant.image_path if variant.image_path else ""
+            'image_url': resolve_image_url(variant.image_path, default_category='products') if variant.image_path else ""
         })
         
     return jsonify({

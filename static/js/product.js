@@ -113,8 +113,10 @@ function updateVariantInfo() {
                 }
 
                 // If variant has specific image, swap main gallery image
-                if (data.image_path) {
-                    mainImg.src = `/static/uploads/products/${data.image_path}`;
+                if (data.image_url) {
+                    mainImg.src = data.image_url;
+                } else if (data.image_path) {
+                    mainImg.src = (data.image_path.startsWith('http') || data.image_path.startsWith('/')) ? data.image_path : `/static/uploads/${data.image_path}`;
                 }
             } else {
                 priceEl.textContent = "Unavailable";

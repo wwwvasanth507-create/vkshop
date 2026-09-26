@@ -39,8 +39,9 @@ function initAutocomplete() {
                     row.style.padding = '0.5rem 0.75rem';
                     row.style.borderBottom = '1px solid var(--border-color)';
                     
+                    const imgUrl = item.image_url || (item.image ? (item.image.startsWith('http') || item.image.startsWith('/') ? item.image : `/static/uploads/products/${item.image}`) : '/static/uploads/placeholder.jpg');
                     row.innerHTML = `
-                        <img src="/static/uploads/products/${item.image}" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">
+                        <img src="${imgUrl}" style="width: 32px; height: 32px; object-fit: contain; border-radius: 4px;">
                         <div>
                             <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-primary);">${item.label}</div>
                             <div style="font-size: 0.8rem; color: var(--primary);">INR ${item.price.toFixed(2)}</div>

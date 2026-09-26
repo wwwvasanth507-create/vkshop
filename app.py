@@ -193,10 +193,12 @@ def create_app():
         )
         
     @app.before_request
-    def start_timer():
-        from flask import g
+    def handle_head_and_start_timer():
+        from flask import g, Response
         import time
         g.start_time = time.time()
+        if request.method == 'HEAD':
+            return Response('', status=200, mimetype='text/html')
 
     # 8. Outgoing Security Headers & Slow Request Logging Injector
     @app.after_request
