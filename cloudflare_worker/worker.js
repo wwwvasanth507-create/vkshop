@@ -5,17 +5,87 @@
  * Description:
  * Proxies incoming HTTP/HTTPS traffic from home.vkshop.workers.dev to the
  * active VPS/backend origin server configured via the ORIGIN_URL environment variable.
+ * Includes native edge SEO support (Google Verification, robots.txt, sitemap.xml).
  */
 
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 1. Configurable Origin Server (Defaults to local/VPS origin if env var is unset)
-    const originBase = (env.ORIGIN_URL || "http://127.0.0.1:5000").replace(/\/+$/, "");
+    // 1. Google Site Verification File Handler
+    if (
+      url.pathname === "/google7eb473ec0eff88a6.html" ||
+      url.pathname.match(/^\/google[a-f0-9]+\.html$/i)
+    ) {
+      const filename = url.pathname.replace("/", "");
+      return new Response(`google-site-verification: ${filename}`, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
+    }
+
+    // 2. SEO robots.txt Handler
+    if (url.pathname === "/robots.txt") {
+      const robotsTxt = `User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /api/
+
+Sitemap: ${url.origin}/sitemap.xml
+`;
+      return new Response(robotsTxt, {
+        status: 200,
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "public, max-age=86400",
+        },
+      });
+    }
+
+    // 3. SEO sitemap.xml Handler
+    if (url.pathname === "/sitemap.xml") {
+      const originBase = (env.ORIGIN_URL || "https://vkshop.dpdns.org").replace(/\/+$/, "");
+      try {
+        const sitemapRes = await fetch(`${originBase}/sitemap.xml`, { headers: request.headers });
+        if (sitemapRes.status === 200) {
+          return sitemapRes;
+        }
+      } catch (e) {
+        // Fallback sitemap if origin fails or doesn't have it
+      }
+
+      const defaultSitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${url.origin}/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${url.origin}/products</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+</urlset>`;
+      return new Response(defaultSitemap, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/xml; charset=utf-8",
+          "Cache-Control": "public, max-age=3600",
+        },
+      });
+    }
+
+    // 4. Configurable Origin Server
+    const originBase = (env.ORIGIN_URL || "https://vkshop.dpdns.org").replace(/\/+$/, "");
     const targetUrl = new URL(`${originBase}${url.pathname}${url.search}`);
 
-    // 2. Handle CORS preflight OPTIONS requests for mobile and web clients
+    // 5. Handle CORS preflight OPTIONS requests for mobile and web clients
     if (request.method === "OPTIONS") {
       return new Response(null, {
         status: 204,
@@ -28,7 +98,7 @@ export default {
       });
     }
 
-    // 3. Construct proxy request headers
+    // 6. Construct proxy request headers
     const proxyHeaders = new Headers(request.headers);
     proxyHeaders.set("X-Forwarded-Host", url.host);
     proxyHeaders.set("X-Forwarded-Proto", url.protocol.replace(":", ""));
@@ -40,7 +110,7 @@ export default {
       proxyHeaders.set("X-Forwarded-For", clientIp);
     }
 
-    // 4. Execute fetch proxy call to current VPS origin
+    // 7. Execute fetch proxy call to current VPS origin
     const init = {
       method: request.method,
       headers: proxyHeaders,
@@ -54,6 +124,11 @@ export default {
       // Clone response headers & set gateway metadata
       const responseHeaders = new Headers(response.headers);
       responseHeaders.set("X-Gateway-Domain", "home.vkshop.workers.dev");
+
+      // Add SEO Headers for indexing public pages
+      if (!url.pathname.startsWith("/admin") && !url.pathname.startsWith("/checkout")) {
+        responseHeaders.set("X-Robots-Tag", "index, follow");
+      }
 
       // Set CORS headers on API requests
       if (url.pathname.startsWith("/api/")) {
@@ -86,3 +161,4 @@ export default {
     }
   },
 };
+
