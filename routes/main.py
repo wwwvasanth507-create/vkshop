@@ -1,10 +1,11 @@
-from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
+from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash, Response
 from flask_login import current_user
 from database import db
 from models import Product, ProductImage, ProductVariant, Category, Brand, Review, QuestionAnswer, RecentlyViewed, SearchHistory, Banner, User, StoreProfile
 from datetime import datetime
 
 main_bp = Blueprint('main', __name__)
+
 
 def get_interested_products(user_id=None, limit=5):
     # If not logged in, return the top 5 products by views/clicks/ratings
@@ -394,5 +395,28 @@ def shipping_rates():
 @main_bp.route('/returns-replacements')
 def returns_replacements():
     return render_template('main/returns.html')
+
+@main_bp.route('/google7eb473ec0eff88a6.html')
+@main_bp.route('/google<string:hash_code>.html')
+def google_verification(hash_code=None):
+    if hash_code:
+        content = f"google-site-verification: google{hash_code}.html"
+    else:
+        content = "google-site-verification: google7eb473ec0eff88a6.html"
+    return Response(content, mimetype='text/html')
+
+@main_bp.route('/robots.txt')
+def robots_txt():
+    content = """User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /checkout
+Disallow: /cart
+Disallow: /api/
+
+Sitemap: https://home.vkshop.workers.dev/sitemap.xml
+"""
+    return Response(content, mimetype='text/plain')
+
 
 
