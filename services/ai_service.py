@@ -209,51 +209,216 @@ Return ONLY a JSON object with:
         "full_description": f"<p>Upgrade your lifestyle with <strong>{name}</strong>. Premium build quality, designed for performance and reliability.</p>"
     }
 
-def get_ai_project_management_insight(query, role='admin', context_data=None):
+def fetch_user_live_db_context(query_text, user):
     """
-    Full Project Management Assistant for Admin, Sellers, and Customers.
-    Answers store operation queries, inventory advice, sales analytics, and project status.
+    Fetches real-time database records strictly scoped to user.id and user.role.
+    Security: Passwords, password_hash, and secret keys are NEVER exposed.
     """
-    ctx_str = json.dumps(context_data, indent=2) if context_data else "General Store Dashboard"
+    if not user or not hasattr(user, 'id'):
+        return {"role": "Guest"}
+
+    try:
+        from models import Order, OrderItem, CartItem, Wishlist, Product, StoreProfile, Address
+        
+        q_lower = (query_text or '').strip().lower()
+        context = {
+            "user_id": user.id,
+            "username": getattr(user, 'username', 'Customer'),
+            "email": getattr(user, 'email', ''),
+            "role": getattr(user, 'role', 'customer')
+        }
+
+        # -------------------------------------------------------------
+        # 1. CUSTOMER ROLE (Strictly scoped to user.id)
+        # -------------------------------------------------------------
+        if user.role in ['customer', 'user']:
+            # Customer Orders
+            if any(w in q_lower for w in ['order', 'purchase', 'bought', 'tracking', 'delivery', 'shipment', 'my orders']):
+                orders = Order.query.filter_by(user_id=user.id).order_by(Order.created_at.desc()).limit(10).all()
+                order_list = []
+                for o in orders:
+                    items_detail = []
+                    for item in o.items:
+                        items_detail.append(f"{item.product_name} (x{item.quantity}) - INR {item.total_price:.2f}")
+
+                    order_list.append({
+                        "order_number": o.order_number,
+                        "status": o.status,
+                        "grand_total": f"INR {o.grand_total:.2f}",
+                        "date": o.created_at.strftime('%Y-%m-%d %H:%M') if o.created_at else "",
+                        "tracking": o.tracking_number or "Processing",
+                        "courier": o.courier_partner or "Standard",
+                        "items_summary": ", ".join(items_detail) if items_detail else "Items"
+                    })
+                context['my_orders'] = order_list
+
+            # Customer Cart
+            if any(w in q_lower for w in ['cart', 'basket', 'my cart']):
+                cart_items = CartItem.query.filter_by(user_id=user.id).all()
+                context['my_cart'] = [{
+                    "product_name": c.product.name if c.product else "Item",
+                    "quantity": c.quantity,
+                    "price": f"INR {c.product.offer_price:.2f}" if c.product else "0.00"
+                } for c in cart_items]
+
+            # Customer Wishlist
+            if any(w in q_lower for w in ['wishlist', 'saved', 'my wishlist']):
+                wish_items = Wishlist.query.filter_by(user_id=user.id).all()
+                context['my_wishlist'] = [w.product.name for w in wish_items if w.product]
+
+            # Customer Profile & Wallet
+            if any(w in q_lower for w in ['account', 'profile', 'wallet', 'points', 'balance', 'my profile']):
+                default_addr = Address.query.filter_by(user_id=user.id, is_default=True).first() or Address.query.filter_by(user_id=user.id).first()
+                context['my_profile'] = {
+                    "username": user.username,
+                    "email": user.email,
+                    "wallet_balance": f"INR {getattr(user, 'wallet_balance', 0.0):.2f}",
+                    "reward_points": getattr(user, 'reward_points_balance', 0),
+                    "shipping_address": f"{default_addr.addressLine1}, {default_addr.city}, {default_addr.state} ({default_addr.postalCode})" if default_addr else "No shipping address on file"
+                }
+
+        # -------------------------------------------------------------
+        # 2. SELLER ROLE (Strictly scoped to seller's store)
+        # -------------------------------------------------------------
+        elif user.role == 'seller':
+            store = getattr(user, 'store_profile', None)
+            if store:
+                context['store_profile'] = {
+                    "store_name": store.name,
+                    "rating": store.rating,
+                    "total_sales": f"INR {store.total_sales:.2f}",
+                    "commission_due": f"INR {store.commission_due:.2f}",
+                    "commission_status": store.commission_payment_status
+                }
+
+                if any(w in q_lower for w in ['product', 'stock', 'inventory', 'my products']):
+                    prods = Product.query.filter_by(seller_id=store.id).all()
+                    context['my_store_products'] = [{
+                        "name": p.name,
+                        "price": f"INR {p.offer_price:.2f}",
+                        "stock": p.stock,
+                        "out_of_stock": p.is_out_of_stock
+                    } for p in prods]
+
+                if any(w in q_lower for w in ['order', 'sale', 'my orders', 'seller orders']):
+                    seller_items = OrderItem.query.join(Product).filter(Product.seller_id == store.id).all()
+                    context['my_store_orders'] = [{
+                        "order_number": item.order.order_number if item.order else "N/A",
+                        "product_name": item.product_name,
+                        "qty": item.quantity,
+                        "total": f"INR {item.total_price:.2f}",
+                        "status": item.order.status if item.order else "N/A"
+                    } for item in seller_items]
+
+        # -------------------------------------------------------------
+        # 3. ADMIN ROLE (Aggregate Metrics)
+        # -------------------------------------------------------------
+        elif user.role in ['admin', 'sub_admin']:
+            from models import User, StoreProfile
+            context['platform_metrics'] = {
+                "total_users": User.query.count(),
+                "total_sellers": StoreProfile.query.count(),
+                "total_products": Product.query.count(),
+                "total_orders": Order.query.count()
+            }
+
+        return context
+    except Exception as err:
+        logger.warning(f"Error fetching live DB context for AI: {err}")
+        return {"role": getattr(user, 'role', 'customer')}
+
+def get_ai_project_management_insight(query, role='admin', context_data=None, user=None):
+    """
+    Full Project Management & Customer Assistant.
+    Reads live SQL database records scoped to user.id and responds accurately.
+    """
+    # If user object passed, pull live DB records
+    if user:
+        db_context = fetch_user_live_db_context(query, user)
+        if context_data and isinstance(context_data, dict):
+            context_data.update(db_context)
+        else:
+            context_data = db_context
+
+    ctx_str = json.dumps(context_data, indent=2) if context_data else "General Store View"
     
-    system_instruction = f"""You are Gemini AI, the Lead Store & Project Manager Assistant for VKShop.
-Role of user: {role.upper()}
-Context Data: {ctx_str}
-Your goal is to provide insightful, accurate, actionable advice on store management, sales improvement, commission structure, inventory replenishment, and customer engagement.
-Be polite, professional, concise, and helpful. Use bold bullet points and clear formatting.
+    system_instruction = f"""You are Gemini AI, the Personal Assistant & Store Manager for VKShop.
+User Role: {role.upper()}
+Live Database Context: {ctx_str}
+
+CRITICAL RULES:
+1. Answer the user's request based on their live database records in `Live Database Context`.
+2. NEVER mention passwords, hashes, or security keys.
+3. If user asks "my orders", list their real orders with order number, items, total price, and status.
+4. If user asks "my cart", list their cart items.
+5. If user asks "my account" or "my profile", list their account summary.
+6. Use clean Markdown formatting with headers (###), bold text (**bold**), and bullet points (- item).
 """
 
     res = call_gemini_api(query, system_instruction=system_instruction)
     if res:
         return res
 
-    # Smart, beautifully formatted fallback responses when API token is unauthorized or offline
+    # Smart, formatted real database fallbacks when AI service is offline
     q_lower = (query or '').strip().lower()
 
-    if any(w in q_lower for w in ['hi', 'hii', 'hello', 'hey', 'vanakkam', 'namaste']):
-        return f"""### 🤖 Gemini AI Store Assistant
-Welcome to **VKShop**! How can I assist you today?
+    # My Orders Handler
+    if any(w in q_lower for w in ['my order', 'my orders', 'order history', 'list my orders']):
+        my_orders = context_data.get('my_orders', []) if context_data else []
+        if my_orders:
+            lines = ["### 📦 Your Orders\n"]
+            for o in my_orders:
+                lines.append(f"- **Order #{o['order_number']}** ({o['date']})")
+                lines.append(f"  - **Status**: `{o['status']}`")
+                lines.append(f"  - **Total**: **{o['grand_total']}**")
+                lines.append(f"  - **Items**: {o['items_summary']}")
+                lines.append(f"  - **Tracking**: {o['courier']} ({o['tracking']})\n")
+            return "\n".join(lines)
+        else:
+            return "### 📦 Your Orders\nYou currently have no orders placed on VKShop."
 
-- **🛍️ Store Catalog**: Search products, compare prices, or find trending deals.
-- **📦 Orders & Delivery**: Track active orders and shipment updates.
-- **⚡ Quick Actions**: Use voice search or ask me for personalized recommendations!"""
+    # My Cart Handler
+    if any(w in q_lower for w in ['my cart', 'cart items', 'basket']):
+        my_cart = context_data.get('my_cart', []) if context_data else []
+        if my_cart:
+            lines = ["### 🛒 Your Shopping Cart\n"]
+            for c in my_cart:
+                lines.append(f"- **{c['product_name']}** — Qty: {c['quantity']} ({c['price']})")
+            return "\n".join(lines)
+        else:
+            return "### 🛒 Your Shopping Cart\nYour cart is currently empty."
+
+    # My Profile / Account Handler
+    if any(w in q_lower for w in ['my account', 'my profile', 'my balance', 'my address']):
+        prof = context_data.get('my_profile', {}) if context_data else {}
+        if prof:
+            return f"""### 👤 Your Account Summary
+- **Username**: **{prof.get('username', 'N/A')}**
+- **Email**: {prof.get('email', 'N/A')}
+- **Wallet Balance**: **{prof.get('wallet_balance', 'INR 0.00')}**
+- **Reward Points**: **{prof.get('reward_points', 0)}**
+- **Default Address**: {prof.get('shipping_address', 'None')}"""
+
+    # Greetings Handler
+    if any(w in q_lower for w in ['hi', 'hii', 'hello', 'hey', 'vanakkam', 'namaste']):
+        username = getattr(user, 'username', 'Customer') if user else 'Customer'
+        return f"""### 🤖 Gemini AI Personal Assistant
+Welcome **{username}**! How can I assist you today?
+
+- **📦 Orders**: Type `"my orders"` to view your orders & tracking status.
+- **🛒 Cart**: Type `"my cart"` to view items saved in your cart.
+- **👤 Account**: Type `"my profile"` to view your wallet balance & address.
+- **🛍️ Catalog**: Ask me for product recommendations or deals!"""
 
     if any(w in q_lower for w in ['stock', 'inventory', 'product', 'item']):
-        return f"""### 📦 Inventory & Stock Status
-Here is your quick product catalog summary:
-- **Active Products**: Catalogs are active and visible on the storefront.
-- **Stock Alert**: Check products with low inventory in your seller dashboard to restock early.
-- **Visibility**: All verified items are listed with instant checkout support."""
-
-    if any(w in q_lower for w in ['sale', 'sales', 'revenue', 'money', 'order']):
-        return f"""### 🚀 Sales & Revenue Recommendations
-- **Promotions**: Feature top-viewed items on the homepage carousel.
-- **Discounts**: Create bundle offers for high-demand apparel & tech items.
-- **Conversion**: Offer free express shipping to reduce cart abandonment."""
+        return f"""### 📦 Inventory & Catalog Overview
+- **Active Products**: Catalogs are active and visible on storefront.
+- **Stock Alert**: Check products with low inventory in seller dashboard.
+- **Instant Checkout**: All listed items support instant secure ordering."""
 
     return f"""### 🤖 Gemini AI Store Assistant
-I am here to help you manage your store and shopping experience!
+I am here to help you with your account and shopping experience!
 
-- **Inventory**: Monitor stock levels and update product catalog details.
-- **Sales**: Run targeted promotions and analyze product clicks.
-- **System Status**: All storefront search, cart, and payment pipelines are operating normally."""
+- **My Orders**: Type `"my orders"` to view your order history.
+- **My Cart**: Type `"my cart"` to see cart items.
+- **My Account**: Type `"my profile"` for wallet balance."""

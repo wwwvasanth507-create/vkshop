@@ -172,29 +172,10 @@ def ai_project_assistant():
     user_msg = data.get('message', '').strip()
 
     if not user_msg:
-        return jsonify({'reply': 'Please ask a question about store operations or product advice!'})
-
-    from models import Product, Order, User
-    context = {}
-    if current_user.role == 'admin':
-        context = {
-            'total_users': User.query.count(),
-            'total_products': Product.query.count(),
-            'total_orders': Order.query.count(),
-            'role': 'Admin'
-        }
-    elif current_user.role == 'seller':
-        context = {
-            'my_products': Product.query.filter_by(seller_id=current_user.id).count(),
-            'role': 'Seller'
-        }
-    else:
-        context = {
-            'role': 'Customer'
-        }
+        return jsonify({'reply': 'Please ask a question about store operations, your orders, or product advice!'})
 
     from services.ai_service import get_ai_project_management_insight
-    reply = get_ai_project_management_insight(user_msg, role=current_user.role, context_data=context)
+    reply = get_ai_project_management_insight(user_msg, role=current_user.role, user=current_user)
     return jsonify({'reply': reply})
 
 # ==================== MOBILE & ANDROID REST API ENDPOINTS ====================
