@@ -1,15 +1,9 @@
 name = "home"
 main = "worker.js"
 compatibility_date = "2024-01-01"
+workers_dev = true
 
 [vars]
-# Configure active VPS or backend origin URL here
-# Example VPS/Tunnel origin: "https://your-current-vps.com" or Cloudflare Tunnel URL
-ORIGIN_URL = "http://127.0.0.1:5000"
+# Configure active VPS origin URL
+ORIGIN_URL = "https://vkshop.dpdns.org"
 
-[env.production]
-name = "home"
-route = { pattern = "home.vkshop.workers.dev/*", zone_name = "workers.dev" }
-
-[env.production.vars]
-ORIGIN_URL = "http://127.0.0.1:5000"
