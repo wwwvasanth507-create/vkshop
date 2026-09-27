@@ -1010,4 +1010,129 @@ class ServerMetric(db.Model):
     error_count_5xx = db.Column(db.Integer, default=0)
     recorded_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
-    server = db.relationship('ServerInstance', backref=db.backref('metrics', lazy='dynamic', cascade='all, delete-orphan'))
+    server = db.relationship('ServerInstance', backref=db.backref('metrics', lazy='dynamic', cascade='all, delete-orphan'))
+
+
+# ==================== PHASE 2 — LIVE MULTI-ADMIN & WHATSAPP QUEUE MODELS ====================
+
+class AdminDevice(db.Model):
+    """Admin mobile/web device registration for Firebase Cloud Messaging (FCM)"""
+    __tablename__ = 'admin_devices'
+    __table_args__ = (
+        db.UniqueConstraint('admin_id', 'device_id', name='uq_admin_device'),
+    )
+
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    device_id = db.Column(db.String(100), nullable=False)
+    platform = db.Column(db.String(30), nullable=False, default='android')
+    fcm_token = db.Column(db.String(255), nullable=False, index=True)
+    device_name = db.Column(db.String(100), nullable=True)
+    app_version = db.Column(db.String(50), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    last_seen_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    admin = db.relationship('User', backref=db.backref('admin_devices', cascade='all, delete-orphan'))
+
+
+class WhatsAppMessageStatus:
+    PENDING = 'PENDING'
+    OPENED = 'OPENED'
+    SENDING = 'SENDING'
+    SENT = 'SENT'
+    CANCELLED = 'CANCELLED'
+    FAILED = 'FAILED'
+
+
+class WhatsAppMessage(db.Model):
+    """Persistent WhatsApp message queue for multi-admin processing"""
+    __tablename__ = 'whatsapp_messages'
+
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
+    customer_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    customer_phone = db.Column(db.String(30), nullable=False)
+    message_text = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default=WhatsAppMessageStatus.PENDING, index=True)
+    created_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    sent_by_admin_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    sent_at = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    version = db.Column(db.Integer, default=1, nullable=False)
+
+    order = db.relationship('Order', backref=db.backref('whatsapp_message', uselist=False, cascade='all, delete-orphan'))
+    customer = db.relationship('User', foreign_keys=[customer_id])
+    created_by_admin = db.relationship('User', foreign_keys=[created_by_admin_id])
+    sent_by_admin = db.relationship('User', foreign_keys=[sent_by_admin_id])
+
+    @property
+    def formatted_international_phone(self):
+        """Format phone number to international standard without leading + or 0s (e.g. 919876543210)."""
+        import re
+        raw = re.sub(r'\D', '', self.customer_phone or '')
+        if not raw:
+            return ""
+        if len(raw) == 10:
+            return f"91{raw}"
+        if raw.startswith('0'):
+            raw = raw.lstrip('0')
+            if len(raw) == 10:
+                return f"91{raw}"
+        return raw
+
+    @property
+    def whatsapp_deep_link(self):
+        """Generate wa.me link with international formatted phone and URL-encoded message text."""
+        import urllib.parse
+        phone = self.formatted_international_phone
+        encoded_text = urllib.parse.quote(self.message_text or '')
+        return f"https://wa.me/{phone}?text={encoded_text}"
+
+
+class AdminNotification(db.Model):
+    """Real-time Admin notification bell items"""
+    __tablename__ = 'admin_notifications'
+
+    id = db.Column(db.Integer, primary_key=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=True, index=True)
+    type = db.Column(db.String(50), nullable=False, default='general')
+    title = db.Column(db.String(150), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    reference_type = db.Column(db.String(50), nullable=True)
+    reference_id = db.Column(db.Integer, nullable=True)
+    is_read = db.Column(db.Boolean, default=False, index=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    admin = db.relationship('User', backref=db.backref('admin_notifications', cascade='all, delete-orphan'))
+
+
+class WhatsAppMessageAudit(db.Model):
+    """Audit trail log for all WhatsApp message state transitions"""
+    __tablename__ = 'whatsapp_message_audits'
+
+    id = db.Column(db.Integer, primary_key=True)
+    message_id = db.Column(db.Integer, db.ForeignKey('whatsapp_messages.id', ondelete='CASCADE'), nullable=False, index=True)
+    admin_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True, index=True)
+    action = db.Column(db.String(50), nullable=False)
+    metadata_json = db.Column('metadata', db.Text, default='{}')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+    message = db.relationship('WhatsAppMessage', backref=db.backref('audits', cascade='all, delete-orphan'))
+    admin = db.relationship('User', foreign_keys=[admin_id])
+
+    @property
+    def meta_dict(self):
+        import json
+        try:
+            return json.loads(self.metadata_json or '{}')
+        except Exception:
+            return {}
+
+    @meta_dict.setter
+    def meta_dict(self, val):
+        import json
+        self.metadata_json = json.dumps(val or {})
+

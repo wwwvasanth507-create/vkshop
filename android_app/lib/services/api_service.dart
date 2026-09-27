@@ -86,4 +86,59 @@ class ApiService {
     }
     return null;
   }
+
+  // Device Registration & FCM Methods
+  static Future<bool> registerAdminDevice({
+    required String deviceId,
+    required String platform,
+    required String fcmToken,
+    String? deviceName,
+    String? appVersion,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/admin/devices/register"),
+        headers: headers,
+        body: json.encode({
+          "device_id": deviceId,
+          "platform": platform,
+          "fcm_token": fcmToken,
+          "device_name": deviceName ?? "Flutter Mobile Device",
+          "app_version": appVersion ?? "1.0.0",
+        }),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("API registerAdminDevice Error: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> unregisterAdminDevice(String deviceId) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/admin/devices/unregister"),
+        headers: headers,
+        body: json.encode({"device_id": deviceId}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("API unregisterAdminDevice Error: $e");
+      return false;
+    }
+  }
+
+  static Future<bool> sendDeviceHeartbeat(String deviceId) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/admin/devices/heartbeat"),
+        headers: headers,
+        body: json.encode({"device_id": deviceId}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      print("API sendDeviceHeartbeat Error: $e");
+      return false;
+    }
+  }
 }

@@ -246,6 +246,12 @@ def keep_alive_self_ping_job(app):
         logger.warning(f"[KEEP-ALIVE] Ping to {health_url} failed: {e}")
 
 
+def recover_stale_whatsapp_sending_job(app):
+    """Reverts WhatsAppMessage items stuck in SENDING status for > 300s back to PENDING."""
+    from services.whatsapp_service import recover_stale_sending_messages
+    timeout_sec = int(os.environ.get('WHATSAPP_MESSAGE_TIMEOUT_SECONDS', 300))
+    recover_stale_sending_messages(app, timeout_seconds=timeout_sec)
+
 def init_scheduler(app):
     """
     Starts the background scheduler thread with the Flask application context.
@@ -288,6 +294,14 @@ def init_scheduler(app):
             minutes=2,
             args=[app],
             id="auto_cancel_orders"
+        )
+        # Stale WhatsApp SENDING recovery every 2 minutes
+        scheduler.add_job(
+            func=recover_stale_whatsapp_sending_job,
+            trigger="interval",
+            minutes=2,
+            args=[app],
+            id="stale_whatsapp_recovery"
         )
         # Low stock check every 10 minutes (threshold: 3 units)
         scheduler.add_job(

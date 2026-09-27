@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% block title %}WhatsApp Order Queue - VKshop Admin{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 1rem; padding-bottom: 3rem;">
+    <!-- Page Title Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <div>
+            <h2 style="font-family: var(--font-heading); font-size: 1.75rem; margin-bottom: 0.25rem;">
+                <i class="fa-brands fa-whatsapp" style="color: #25D366;"></i> WhatsApp Multi-Admin Order Queue
+            </h2>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Manage live customer order notification messages. Live updates sync automatically across all active admin devices.
+            </p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-secondary" style="font-size: 0.85rem;">
+                <i class="fa-solid fa-arrow-left"></i> Back to Admin Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Tabs -->
+    <div style="display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; margin-bottom: 2rem; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <a href="{{ url_for('admin.whatsapp_queue_ui', status='PENDING') }}" 
+           class="btn {% if current_status == 'PENDING' %}btn-primary{% else %}btn-secondary{% endif %}" 
+           style="padding: 0.5rem 1rem; font-size: 0.88rem; border-radius: var(--radius-md);">
+            Pending <span class="badge" style="background: rgba(255,255,255,0.2); margin-left: 0.35rem;">{{ pending_count }}</span>
+        </a>
+        <a href="{{ url_for('admin.whatsapp_queue_ui', status='SENDING') }}" 
+           class="btn {% if current_status == 'SENDING' %}btn-primary{% else %}btn-secondary{% endif %}" 
+           style="padding: 0.5rem 1rem; font-size: 0.88rem; border-radius: var(--radius-md);">
+            Sending <span class="badge" style="background: rgba(255,255,255,0.2); margin-left: 0.35rem;">{{ sending_count }}</span>
+        </a>
+        <a href="{{ url_for('admin.whatsapp_queue_ui', status='SENT') }}" 
+           class="btn {% if current_status == 'SENT' %}btn-primary{% else %}btn-secondary{% endif %}" 
+           style="padding: 0.5rem 1rem; font-size: 0.88rem; border-radius: var(--radius-md);">
+            Sent History <span class="badge" style="background: rgba(255,255,255,0.2); margin-left: 0.35rem;">{{ sent_count }}</span>
+        </a>
+        <a href="{{ url_for('admin.whatsapp_queue_ui', status='FAILED') }}" 
+           class="btn {% if current_status == 'FAILED' %}btn-primary{% else %}btn-secondary{% endif %}" 
+           style="padding: 0.5rem 1rem; font-size: 0.88rem; border-radius: var(--radius-md);">
+            Failed <span class="badge" style="background: rgba(255,255,255,0.2); margin-left: 0.35rem;">{{ failed_count }}</span>
+        </a>
+    </div>
+
+    <!-- Messages Container -->
+    <div id="whatsapp-messages-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem;">
+        {% if messages %}
+            {% for msg in messages %}
+            <div class="card whatsapp-card" id="wa-card-{{ msg.id }}" style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 1.25rem; box-shadow: var(--shadow-sm); position: relative; transition: all 0.2s ease;">
+                
+                <!-- Card Header -->
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                    <div>
+                        <strong style="font-size: 1.1rem; color: var(--primary);">Order #{{ msg.order.order_number if msg.order else 'N/A' }}</strong>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">Created: {{ msg.created_at.strftime('%d %b %Y %I:%M %p') }}</div>
+                    </div>
+                    <span class="badge" style="
+                        {% if msg.status == 'PENDING' %}background-color: #f59e0b; color: white;
+                        {% elif msg.status == 'SENDING' %}background-color: #3b82f6; color: white;
+                        {% elif msg.status == 'SENT' %}background-color: #10b981; color: white;
+                        {% else %}background-color: #ef4444; color: white;{% endif %}
+                        padding: 0.25rem 0.6rem; font-size: 0.75rem; border-radius: 9999px;">
+                        {{ msg.status }}
+                    </span>
+                </div>
+
+                <!-- Customer Details -->
+                <div style="margin-bottom: 0.75rem; font-size: 0.9rem;">
+                    <div><i class="fa-solid fa-user" style="color: var(--text-muted); width: 18px;"></i> <strong>{{ msg.order.user.username if msg.order and msg.order.user else 'Customer' }}</strong></div>
+                    <div><i class="fa-solid fa-phone" style="color: var(--text-muted); width: 18px;"></i> {{ msg.customer_phone }} (Intl: +{{ msg.formatted_international_phone }})</div>
+                    <div><i class="fa-solid fa-indian-rupee-sign" style="color: var(--text-muted); width: 18px;"></i> <strong>₹{{ msg.order.grand_total|round(2) if msg.order else '0.00' }}</strong></div>
+                </div>
+
+                <!-- Message Preview -->
+                <div style="background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.75rem; font-size: 0.82rem; white-space: pre-wrap; font-family: monospace; color: var(--text-secondary); max-height: 120px; overflow-y: auto; margin-bottom: 1rem;">
+                    {{ msg.message_text }}
+                </div>
+
+                <!-- Action Footer -->
+                <div id="card-actions-{{ msg.id }}">
+                    {% if msg.status == 'PENDING' %}
+                        <button onclick="claimAndSendWhatsApp('{{ msg.id }}', '{{ msg.version }}')" class="btn btn-primary" style="width: 100%; background-color: #25D366; border-color: #25D366; color: white; font-weight: 600; padding: 0.65rem;">
+                            <i class="fa-brands fa-whatsapp"></i> Send WhatsApp
+                        </button>
+                    {% elif msg.status == 'SENDING' %}
+                        {% if msg.sent_by_admin_id == current_user.id %}
+                            <button onclick="openConfirmModal('{{ msg.id }}')" class="btn btn-warning" style="width: 100%; font-weight: 600; padding: 0.65rem;">
+                                <i class="fa-solid fa-clock"></i> Confirm Send Status
+                            </button>
+                        {% else %}
+                            <div style="text-align: center; font-size: 0.85rem; color: #3b82f6; font-weight: 600; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-md);">
+                                <i class="fa-solid fa-spinner fa-spin"></i> {{ msg.sent_by_admin.username if msg.sent_by_admin else 'Another Admin' }} is sending...
+                            </div>
+                        {% endif %}
+                    {% elif msg.status == 'SENT' %}
+                        <div style="font-size: 0.85rem; color: #10b981; font-weight: 600; text-align: center; padding: 0.5rem;">
+                            <i class="fa-solid fa-check-circle"></i> Sent by {{ msg.sent_by_admin.username if msg.sent_by_admin else 'Admin' }} on {{ msg.sent_at.strftime('%d %b %H:%M') if msg.sent_at else '' }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg);">
+                <i class="fa-brands fa-whatsapp" style="font-size: 3.5rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+                <h4>No WhatsApp Messages Found</h4>
+                <p style="color: var(--text-secondary); font-size: 0.9rem;">There are currently no messages under the '{{ current_status }}' status queue.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Two-Phase Confirmation Modal -->
+<div id="wa-confirm-modal" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); z-index: 99999; align-items: center; justify-content: center;">
+    <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 2rem; width: 90%; max-width: 440px; box-shadow: var(--shadow-lg); text-align: center;">
+        <i class="fa-brands fa-whatsapp" style="font-size: 3rem; color: #25D366; margin-bottom: 1rem;"></i>
+        <h3 style="margin-bottom: 0.5rem;">Confirm WhatsApp Status</h3>
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+            Was the WhatsApp message successfully sent to the customer?
+        </p>
+
+        <input type="hidden" id="modal-active-msg-id" value="">
+
+        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+            <button onclick="submitConfirmation(true)" class="btn btn-success" style="padding: 0.75rem; font-weight: 600;">
+                <i class="fa-solid fa-check"></i> Mark as Sent
+            </button>
+            <button onclick="submitConfirmation(false)" class="btn btn-secondary" style="padding: 0.75rem;">
+                <i class="fa-solid fa-rotate-left"></i> Keep Pending (Not Sent)
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let activeMessageId = null;
+
+    async function claimAndSendWhatsApp(msgId, version) {
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const res = await fetch(`/api/admin/whatsapp/claim/${msgId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ version: parseInt(version) })
+            });
+
+            const data = await res.json();
+
+            if (res.status === 409) {
+                alert("⚠️ This WhatsApp message was just claimed by another admin.");
+                window.location.reload();
+                return;
+            }
+
+            if (!res.ok || !data.success) {
+                alert(data.message || "Failed to claim WhatsApp message.");
+                return;
+            }
+
+            // Open WhatsApp wa.me deep link in new browser tab
+            window.open(data.deep_link, '_blank');
+
+            // Open Confirmation Modal
+            openConfirmModal(msgId);
+        } catch (err) {
+            console.error("Claim error:", err);
+            alert("Network error claiming WhatsApp message.");
+        }
+    }
+
+    function openConfirmModal(msgId) {
+        activeMessageId = msgId;
+        document.getElementById('modal-active-msg-id').value = msgId;
+        document.getElementById('wa-confirm-modal').style.display = 'flex';
+    }
+
+    async function submitConfirmation(isSent) {
+        const msgId = activeMessageId || document.getElementById('modal-active-msg-id').value;
+        if (!msgId) return;
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const res = await fetch(`/api/admin/whatsapp/confirm/${msgId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ is_sent: isSent })
+            });
+
+            const data = await res.json();
+            document.getElementById('wa-confirm-modal').style.display = 'none';
+
+            if (res.ok && data.success) {
+                window.location.reload();
+            } else {
+                alert(data.message || "Error updating status.");
+            }
+        } catch (err) {
+            console.error("Confirm error:", err);
+            document.getElementById('wa-confirm-modal').style.display = 'none';
+        }
+    }
+
+    // Server-Sent Events (SSE) Live Multi-Admin Listener
+    function initAdminSSE() {
+        if (!window.EventSource) return;
+        const source = new EventSource('/api/admin/events/stream');
+
+        source.addEventListener('whatsapp_created', function(e) {
+            console.log('[SSE] whatsapp_created:', e.data);
+            // Dynamic refresh if on pending tab
+            if ("{{ current_status }}" === "PENDING") {
+                window.location.reload();
+            }
+        });
+
+        source.addEventListener('whatsapp_claimed', function(e) {
+            console.log('[SSE] whatsapp_claimed:', e.data);
+            const payload = JSON.parse(e.data);
+            const actionsDiv = document.getElementById(`card-actions-${payload.message_id}`);
+            if (actionsDiv && payload.admin_id !== {{ current_user.id }}) {
+                actionsDiv.innerHTML = `<div style="text-align: center; font-size: 0.85rem; color: #3b82f6; font-weight: 600; padding: 0.5rem; background: rgba(59, 130, 246, 0.1); border-radius: var(--radius-md);"><i class="fa-solid fa-spinner fa-spin"></i> ${payload.admin_name} is sending...</div>`;
+            }
+        });
+
+        source.addEventListener('whatsapp_sent', function(e) {
+            console.log('[SSE] whatsapp_sent:', e.data);
+            const payload = JSON.parse(e.data);
+            const card = document.getElementById(`wa-card-${payload.message_id}`);
+            if (card && "{{ current_status }}" === "PENDING") {
+                card.remove();
+            }
+        });
+
+        source.addEventListener('whatsapp_released', function(e) {
+            console.log('[SSE] whatsapp_released:', e.data);
+            if ("{{ current_status }}" === "PENDING" || "{{ current_status }}" === "SENDING") {
+                window.location.reload();
+            }
+        });
+
+        source.onerror = function() {
+            console.log('[SSE] Connection error. Retrying connection...');
+        };
+    }
+
+    document.addEventListener('DOMContentLoaded', initAdminSSE);
+</script>
+{% endblock %}

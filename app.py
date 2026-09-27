@@ -258,7 +258,7 @@ def create_app():
     from routes.main import main_bp
     from routes.customer import customer_bp
     from routes.seller import seller_bp
-    from routes.admin import admin_bp
+    from routes.admin import admin_bp, api_admin_bp
     from routes.api import api_bp
     from routes.monitoring import monitoring_bp
     
@@ -267,6 +267,7 @@ def create_app():
     app.register_blueprint(customer_bp)
     app.register_blueprint(seller_bp, url_prefix='/seller')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(api_admin_bp, url_prefix='/api/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
     app.register_blueprint(monitoring_bp)
     

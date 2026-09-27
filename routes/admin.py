@@ -12,6 +12,7 @@ import uuid
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__)
+api_admin_bp = Blueprint('api_admin', __name__)
 
 def is_admin_or_sub_admin():
     return current_user.role in ['admin', 'sub_admin']
@@ -22,6 +23,12 @@ def check_admin_role():
     if current_user.role not in ['admin', 'sub_admin']:
         flash("Unauthorized access. Admins only.", "danger")
         return redirect(url_for('main.index'))
+
+@api_admin_bp.before_request
+@login_required
+def check_api_admin_role():
+    if current_user.role not in ['admin', 'sub_admin']:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
 
 def log_audit(action, details=None):
     from routes.auth import log_audit as core_log
@@ -1325,4 +1332,277 @@ def trigger_cluster_health_check():
     from services.server_registry import server_registry
     server_registry.check_all_servers_health()
     flash("Cluster health check executed across all registered nodes.", "success")
-    return redirect(url_for('admin.server_management'))
+    return redirect(url_for('admin.server_management'))
+
+
+# ==================== PHASE 2 — LIVE WHATSAPP QUEUE & SSE ENDPOINTS ====================
+
+@admin_bp.route('/whatsapp', endpoint='whatsapp_queue_page')
+@admin_bp.route('/admin/whatsapp', endpoint='whatsapp_queue_ui')
+def whatsapp_queue_page():
+    """Renders the Live Multi-Admin WhatsApp Queue interface."""
+    from models import WhatsAppMessage, WhatsAppMessageStatus
+    status_filter = request.args.get('status', 'PENDING').upper()
+    valid_statuses = ['PENDING', 'SENDING', 'SENT', 'FAILED', 'CANCELLED']
+    if status_filter not in valid_statuses:
+        status_filter = 'PENDING'
+
+    messages = WhatsAppMessage.query.filter_by(status=status_filter).order_by(WhatsAppMessage.created_at.desc()).all()
+    
+    pending_count = WhatsAppMessage.query.filter_by(status='PENDING').count()
+    sending_count = WhatsAppMessage.query.filter_by(status='SENDING').count()
+    sent_count = WhatsAppMessage.query.filter_by(status='SENT').count()
+    failed_count = WhatsAppMessage.query.filter_by(status='FAILED').count()
+
+    return render_template(
+        'admin/whatsapp_queue.html',
+        messages=messages,
+        current_status=status_filter,
+        pending_count=pending_count,
+        sending_count=sending_count,
+        sent_count=sent_count,
+        failed_count=failed_count
+    )
+
+
+@api_admin_bp.route('/whatsapp/messages')
+@admin_bp.route('/api/admin/whatsapp/messages')
+@admin_bp.route('/whatsapp/messages')
+def api_whatsapp_messages():
+    """Returns JSON list of WhatsApp messages filtered by status."""
+    from models import WhatsAppMessage
+    status_filter = request.args.get('status', 'PENDING').upper()
+    messages = WhatsAppMessage.query.filter_by(status=status_filter).order_by(WhatsAppMessage.created_at.desc()).all()
+
+    results = []
+    for m in messages:
+        sender_name = m.sent_by_admin.username if m.sent_by_admin else None
+        results.append({
+            'id': m.id,
+            'order_id': m.order_id,
+            'order_number': m.order.order_number if m.order else 'N/A',
+            'customer_phone': m.customer_phone,
+            'formatted_phone': m.formatted_international_phone,
+            'message_text': m.message_text,
+            'status': m.status,
+            'version': m.version,
+            'sent_by_admin_id': m.sent_by_admin_id,
+            'sent_by_admin_name': sender_name,
+            'deep_link': m.whatsapp_deep_link,
+            'created_at': m.created_at.isoformat(),
+            'sent_at': m.sent_at.isoformat() if m.sent_at else None
+        })
+
+    return jsonify({'success': True, 'count': len(results), 'messages': results})
+
+
+@api_admin_bp.route('/whatsapp/claim/<int:message_id>', methods=['POST'])
+@admin_bp.route('/api/admin/whatsapp/claim/<int:message_id>', methods=['POST'])
+@admin_bp.route('/whatsapp/claim/<int:message_id>', methods=['POST'])
+def api_whatsapp_claim(message_id):
+    """Atomic PostgreSQL claim transition (PENDING -> SENDING)."""
+    from services.whatsapp_service import claim_whatsapp_message
+    version = request.json.get('version') if request.is_json and request.json else None
+    res = claim_whatsapp_message(message_id, current_user.id, version)
+    return jsonify(res), (200 if res['success'] else 409 if res.get('reason') == 'already_claimed' else 400)
+
+
+@api_admin_bp.route('/whatsapp/confirm/<int:message_id>', methods=['POST'])
+@admin_bp.route('/api/admin/whatsapp/confirm/<int:message_id>', methods=['POST'])
+@admin_bp.route('/whatsapp/confirm/<int:message_id>', methods=['POST'])
+def api_whatsapp_confirm(message_id):
+    """Two-phase confirmation flow (SENDING -> SENT or release SENDING -> PENDING)."""
+    from services.whatsapp_service import confirm_whatsapp_message_sent
+    data = request.get_json(silent=True) or {}
+    is_sent = data.get('is_sent', True)
+    res = confirm_whatsapp_message_sent(message_id, current_user.id, is_sent=is_sent)
+    return jsonify(res), (200 if res['success'] else 400)
+
+
+@api_admin_bp.route('/whatsapp/cancel/<int:message_id>', methods=['POST'])
+@admin_bp.route('/api/admin/whatsapp/cancel/<int:message_id>', methods=['POST'])
+@admin_bp.route('/whatsapp/cancel/<int:message_id>', methods=['POST'])
+def api_whatsapp_cancel(message_id):
+    """Cancels a WhatsApp message."""
+    from models import WhatsAppMessage, WhatsAppMessageStatus, WhatsAppMessageAudit
+    msg = WhatsAppMessage.query.get_or_404(message_id)
+    msg.status = WhatsAppMessageStatus.CANCELLED
+    msg.updated_at = datetime.utcnow()
+    
+    audit = WhatsAppMessageAudit(
+        message_id=msg.id,
+        admin_id=current_user.id,
+        action='CANCELLED',
+        metadata_json='{}'
+    )
+    db.session.add(audit)
+    db.session.commit()
+    
+    from services.sse_service import publish_admin_event
+    publish_admin_event('whatsapp_released', {'message_id': msg.id, 'status': msg.status, 'reason': 'cancelled'})
+    return jsonify({'success': True, 'status': msg.status})
+
+
+@api_admin_bp.route('/notifications')
+@admin_bp.route('/api/admin/notifications')
+@admin_bp.route('/notifications')
+def api_admin_notifications():
+    """Returns list of admin notifications for header bell dropdown."""
+    from models import AdminNotification
+    notifs = AdminNotification.query.filter(
+        (AdminNotification.admin_id == None) | (AdminNotification.admin_id == current_user.id)
+    ).order_by(AdminNotification.created_at.desc()).limit(20).all()
+
+    unread_count = AdminNotification.query.filter(
+        ((AdminNotification.admin_id == None) | (AdminNotification.admin_id == current_user.id)),
+        AdminNotification.is_read == False
+    ).count()
+
+    results = [{
+        'id': n.id,
+        'type': n.type,
+        'title': n.title,
+        'body': n.body,
+        'reference_type': n.reference_type,
+        'reference_id': n.reference_id,
+        'is_read': n.is_read,
+        'created_at': n.created_at.isoformat()
+    } for n in notifs]
+
+    return jsonify({'success': True, 'unread_count': unread_count, 'notifications': results})
+
+
+@api_admin_bp.route('/notifications/mark-read', methods=['POST'])
+@admin_bp.route('/api/admin/notifications/mark-read', methods=['POST'])
+@admin_bp.route('/notifications/mark-read', methods=['POST'])
+def api_admin_notifications_mark_read():
+    """Marks admin notifications as read."""
+    from models import AdminNotification
+    AdminNotification.query.filter(
+        ((AdminNotification.admin_id == None) | (AdminNotification.admin_id == current_user.id)),
+        AdminNotification.is_read == False
+    ).update({AdminNotification.is_read: True}, synchronize_session=False)
+    db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_admin_bp.route('/devices/register', methods=['POST'])
+@admin_bp.route('/api/admin/devices/register', methods=['POST'])
+@admin_bp.route('/devices/register', methods=['POST'])
+def api_register_admin_device():
+    """Registers or updates FCM device token for an admin device."""
+    from models import AdminDevice
+    data = request.get_json(silent=True) or {}
+    device_id = data.get('device_id', '').strip()
+    fcm_token = data.get('fcm_token', '').strip()
+    platform = data.get('platform', 'android').strip()
+    device_name = data.get('device_name', '').strip()
+    app_version = data.get('app_version', '').strip()
+
+    if not device_id or not fcm_token:
+        return jsonify({'success': False, 'message': 'device_id and fcm_token are required.'}), 400
+
+    device = AdminDevice.query.filter_by(admin_id=current_user.id, device_id=device_id).first()
+    if device:
+        device.fcm_token = fcm_token
+        device.platform = platform
+        device.device_name = device_name
+        device.app_version = app_version
+        device.is_active = True
+        device.last_seen_at = datetime.utcnow()
+    else:
+        device = AdminDevice(
+            admin_id=current_user.id,
+            device_id=device_id,
+            platform=platform,
+            fcm_token=fcm_token,
+            device_name=device_name,
+            app_version=app_version,
+            is_active=True,
+            last_seen_at=datetime.utcnow()
+        )
+        db.session.add(device)
+
+    db.session.commit()
+    return jsonify({'success': True, 'device_id': device.device_id, 'fcm_token': device.fcm_token})
+
+
+@api_admin_bp.route('/devices/unregister', methods=['POST'])
+@admin_bp.route('/api/admin/devices/unregister', methods=['POST'])
+@admin_bp.route('/devices/unregister', methods=['POST'])
+def api_unregister_admin_device():
+    """Unregisters FCM device token for an admin device."""
+    from models import AdminDevice
+    data = request.get_json(silent=True) or {}
+    device_id = data.get('device_id', '').strip()
+
+    if device_id:
+        AdminDevice.query.filter_by(admin_id=current_user.id, device_id=device_id).update({'is_active': False}, synchronize_session=False)
+        db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_admin_bp.route('/devices/heartbeat', methods=['POST'])
+@admin_bp.route('/api/admin/devices/heartbeat', methods=['POST'])
+@admin_bp.route('/devices/heartbeat', methods=['POST'])
+def api_admin_device_heartbeat():
+    """Updates device last_seen_at timestamp."""
+    from models import AdminDevice
+    data = request.get_json(silent=True) or {}
+    device_id = data.get('device_id', '').strip()
+
+    if device_id:
+        AdminDevice.query.filter_by(admin_id=current_user.id, device_id=device_id).update({'last_seen_at': datetime.utcnow(), 'is_active': True}, synchronize_session=False)
+        db.session.commit()
+    return jsonify({'success': True})
+
+
+@api_admin_bp.route('/events/stream')
+@admin_bp.route('/api/admin/events/stream')
+@admin_bp.route('/events/stream')
+def admin_events_stream():
+    """
+    Server-Sent Events (SSE) live stream for authenticated admins.
+    Broadcasts real-time events without page refresh and sends heartbeat comments.
+    """
+    if current_user.role not in ['admin', 'sub_admin']:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    from flask import Response
+    from services.sse_service import register_sse_subscriber, unregister_sse_subscriber
+    import time, json
+    from queue import Empty
+
+    def generate_events():
+        q = register_sse_subscriber()
+        yield ": connect\n\n"
+        
+        heartbeat_interval = int(os.environ.get('SSE_HEARTBEAT_SECONDS', 15))
+        last_heartbeat = time.time()
+
+        try:
+            while True:
+                now = time.time()
+                try:
+                    event_payload = q.get(timeout=1.0)
+                    payload_dict = json.loads(event_payload)
+                    ev_name = payload_dict.get('event', 'message')
+                    ev_data = json.dumps(payload_dict.get('data', {}))
+                    yield f"event: {ev_name}\ndata: {ev_data}\n\n"
+                except Empty:
+                    pass
+
+                if now - last_heartbeat >= heartbeat_interval:
+                    yield ": heartbeat\n\n"
+                    last_heartbeat = now
+        except GeneratorExit:
+            unregister_sse_subscriber(q)
+        except Exception:
+            unregister_sse_subscriber(q)
+
+    return Response(generate_events(), mimetype='text/event-stream', headers={
+        'Cache-Control': 'no-cache',
+        'X-Accel-Buffering': 'no',
+        'Connection': 'keep-alive'
+    })
+

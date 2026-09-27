@@ -219,6 +219,23 @@
                     </a>
                     
                     {% if current_user.role == 'admin' %}
+                        <div class="admin-notif-bell-wrapper" style="position: relative; display: inline-block;">
+                            <button class="nav-btn nav-badge-btn" id="admin-notif-bell-btn" title="Admin Notifications" onclick="toggleAdminNotifDropdown(event)">
+                                <i class="fa-solid fa-bell"></i>
+                                <span class="nav-text">Notifications</span>
+                                <span id="admin-notif-badge" class="badge" style="display: none; background: #ef4444; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; font-weight: bold; position: absolute; top: -4px; right: -4px;">0</span>
+                            </button>
+                            <div id="admin-notif-dropdown" style="display: none; position: absolute; right: 0; top: 110%; width: 300px; background: var(--bg-secondary, #1e293b); border: 1px solid var(--border-color, rgba(255,255,255,0.15)); border-radius: 10px; box-shadow: 0 10px 25px rgba(0,0,0,0.4); z-index: 9999; padding: 0.5rem 0; color: var(--text-primary, #f8fafc);">
+                                <div style="padding: 0.6rem 1rem; border-bottom: 1px solid var(--border-color, #334155); display: flex; justify-content: space-between; align-items: center;">
+                                    <strong style="font-size: 0.85rem;"><i class="fa-solid fa-bell"></i> Notifications</strong>
+                                    <button onclick="markAllAdminNotifsRead(event)" style="background: none; border: none; color: #3b82f6; font-size: 0.75rem; cursor: pointer; text-decoration: underline;">Mark Read</button>
+                                </div>
+                                <div id="admin-notif-list" style="max-height: 260px; overflow-y: auto;">
+                                    <div style="padding: 1rem; text-align: center; color: #94a3b8; font-size: 0.85rem;">No new notifications</div>
+                                </div>
+                            </div>
+                        </div>
+                        <a href="{{ url_for('admin.whatsapp_queue_page') }}" class="nav-btn" title="WhatsApp Queue"><i class="fa-brands fa-whatsapp" style="color: #22c55e;"></i> <span class="nav-text">WA Queue</span></a>
                         <a href="{{ url_for('admin.dashboard') }}" class="nav-btn"><i class="fa-solid fa-shield-halved"></i> <span class="nav-text">Admin</span></a>
                     {% elif current_user.role == 'seller' %}
                         <a href="{{ url_for('seller.dashboard') }}" class="nav-btn"><i class="fa-solid fa-store"></i> <span class="nav-text">Seller Dashboard</span></a>
@@ -331,6 +348,84 @@
             });
         })();
     </script>
+    {% if current_user.is_authenticated and current_user.role == 'admin' %}
+    <script>
+    function toggleAdminNotifDropdown(e) {
+        if (e) e.stopPropagation();
+        const dropdown = document.getElementById('admin-notif-dropdown');
+        if (!dropdown) return;
+        const isHidden = dropdown.style.display === 'none';
+        dropdown.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) fetchAdminNotifs();
+    }
+
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('admin-notif-dropdown');
+        const bellBtn = document.getElementById('admin-notif-bell-btn');
+        if (dropdown && dropdown.style.display !== 'none' && !dropdown.contains(e.target) && bellBtn && !bellBtn.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
+    async function fetchAdminNotifs() {
+        try {
+            const res = await fetch('/api/admin/notifications');
+            if (!res.ok) return;
+            const data = await res.json();
+            const badge = document.getElementById('admin-notif-badge');
+            const list = document.getElementById('admin-notif-list');
+            
+            if (data.unread_count > 0) {
+                badge.textContent = data.unread_count;
+                badge.style.display = 'inline-block';
+            } else {
+                badge.style.display = 'none';
+            }
+            
+            if (!list) return;
+            if (!data.notifications || data.notifications.length === 0) {
+                list.innerHTML = '<div style="padding: 1rem; text-align: center; color: #94a3b8; font-size: 0.85rem;">No new notifications</div>';
+                return;
+            }
+            
+            list.innerHTML = data.notifications.map(n => `
+                <div style="padding: 0.65rem 1rem; border-bottom: 1px solid rgba(255,255,255,0.05); background: ${n.is_read ? 'transparent' : 'rgba(59,130,246,0.08)'}; font-size: 0.82rem;">
+                    <div style="font-weight: 600; color: #38bdf8;">${escapeHtml(n.title)}</div>
+                    <div style="color: #cbd5e1; margin: 2px 0;">${escapeHtml(n.body)}</div>
+                    <div style="font-size: 0.72rem; color: #64748b; display: flex; justify-content: space-between;">
+                        <span>${new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        ${n.reference_type === 'order' ? `<a href="/admin/dashboard#orders" style="color: #22c55e; text-decoration: underline;">View Order</a>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        } catch(err) {
+            console.error('Error loading admin notifications:', err);
+        }
+    }
+
+    async function markAllAdminNotifsRead(e) {
+        if (e) e.stopPropagation();
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+            await fetch('/api/admin/notifications/mark-read', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+                body: JSON.stringify({})
+            });
+            fetchAdminNotifs();
+        } catch(err) {
+            console.error('Error marking notifications as read:', err);
+        }
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchAdminNotifs);
+    </script>
+    {% endif %}
     {% block scripts %}{% endblock %}
 </body>
 </html>

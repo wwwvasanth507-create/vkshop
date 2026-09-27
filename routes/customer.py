@@ -515,6 +515,14 @@ def checkout():
                 ))
             
         db.session.commit()
+
+        # Phase 2: Create persistent WhatsApp message for new order
+        try:
+            from services.whatsapp_service import create_whatsapp_message_for_order
+            create_whatsapp_message_for_order(new_order)
+        except Exception as wa_err:
+            from flask import current_app
+            current_app.logger.error(f"[WHATSAPP] Error creating WhatsApp queue item for Order #{new_order.order_number}: {wa_err}")
         
         if is_upi_scan_pay:
             flash(f"Order {order_num} created! Please complete UPI payment.", "info")
