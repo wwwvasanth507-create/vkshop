@@ -1402,7 +1402,8 @@ def api_whatsapp_messages():
 def api_whatsapp_claim(message_id):
     """Atomic PostgreSQL claim transition (PENDING -> SENDING)."""
     from services.whatsapp_service import claim_whatsapp_message
-    version = request.json.get('version') if request.is_json and request.json else None
+    data = request.get_json(silent=True) or {}
+    version = data.get('version')
     res = claim_whatsapp_message(message_id, current_user.id, version)
     return jsonify(res), (200 if res['success'] else 409 if res.get('reason') == 'already_claimed' else 400)
 

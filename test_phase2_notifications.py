@@ -243,8 +243,9 @@ class TestPhase2Notifications(unittest.TestCase):
         # First claim by admin 1
         res1 = claim_whatsapp_message(msg.id, self.admin1.id)
         self.assertTrue(res1['success'])
-        self.assertEqual(res1['message'].status, WhatsAppMessageStatus.SENDING)
-        self.assertEqual(res1['message'].sent_by_admin_id, self.admin1.id)
+        self.assertEqual(res1['status'], WhatsAppMessageStatus.SENDING)
+        db_msg = WhatsAppMessage.query.get(msg.id)
+        self.assertEqual(db_msg.sent_by_admin_id, self.admin1.id)
 
         # Second claim by admin 2 on same message
         res2 = claim_whatsapp_message(msg.id, self.admin2.id)
@@ -258,8 +259,9 @@ class TestPhase2Notifications(unittest.TestCase):
 
         res = confirm_whatsapp_message_sent(msg.id, self.admin1.id)
         self.assertTrue(res['success'])
-        self.assertEqual(res['message'].status, WhatsAppMessageStatus.SENT)
-        self.assertIsNotNone(res['message'].sent_at)
+        self.assertEqual(res['status'], WhatsAppMessageStatus.SENT)
+        db_msg = WhatsAppMessage.query.get(msg.id)
+        self.assertIsNotNone(db_msg.sent_at)
 
         # Audit record verification
         audits = WhatsAppMessageAudit.query.filter_by(message_id=msg.id).all()

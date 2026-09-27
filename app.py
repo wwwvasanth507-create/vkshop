@@ -396,8 +396,9 @@ def create_app():
     # 13. Compress existing local images & sync uploads on startup
     with app.app_context():
         try:
-            from services.storage import compress_existing_local_images
-            compress_existing_local_images()
+            if not app.config.get('TESTING'):
+                from services.storage import compress_existing_local_images
+                compress_existing_local_images()
         except Exception as e:
             app.logger.warning(f"Startup image compression skipped: {e}")
             

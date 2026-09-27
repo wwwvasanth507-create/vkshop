@@ -188,7 +188,8 @@ def claim_whatsapp_message(message_id, admin_id, expected_version=None):
     return {
         'success': True,
         'message_id': msg.id,
-        'message': msg,
+        'message_text': msg.message_text,
+        'message': f"WhatsApp message #{msg.id} claimed successfully.",
         'status': msg.status,
         'deep_link': msg.whatsapp_deep_link,
         'version': msg.version
@@ -266,7 +267,12 @@ def confirm_whatsapp_message_sent(message_id, admin_id, is_sent=True):
             'reason': 'user_released'
         })
 
-    return {'success': True, 'status': msg.status, 'message': msg, 'message_id': msg.id}
+    return {
+        'success': True,
+        'status': msg.status,
+        'message': f"WhatsApp message #{msg.id} status updated to {msg.status}.",
+        'message_id': msg.id
+    }
 
 
 def recover_stale_sending_messages(app=None, timeout_seconds=300):

@@ -139,17 +139,24 @@
 
     async function claimAndSendWhatsApp(msgId, version) {
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
             const res = await fetch(`/api/admin/whatsapp/claim/${msgId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': csrfToken,
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({ version: parseInt(version) })
             });
 
-            const data = await res.json();
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                console.error("Non-JSON error response from server:", jsonErr);
+            }
 
             if (res.status === 409) {
                 alert("⚠️ This WhatsApp message was just claimed by another admin.");
@@ -158,18 +165,20 @@
             }
 
             if (!res.ok || !data.success) {
-                alert(data.message || "Failed to claim WhatsApp message.");
+                alert(data.message || `Failed to claim WhatsApp message (HTTP ${res.status}).`);
                 return;
             }
 
             // Open WhatsApp wa.me deep link in new browser tab
-            window.open(data.deep_link, '_blank');
+            if (data.deep_link) {
+                window.open(data.deep_link, '_blank');
+            }
 
             // Open Confirmation Modal
             openConfirmModal(msgId);
         } catch (err) {
             console.error("Claim error:", err);
-            alert("Network error claiming WhatsApp message.");
+            alert("Network error claiming WhatsApp message: " + (err.message || err));
         }
     }
 
@@ -184,23 +193,31 @@
         if (!msgId) return;
 
         try {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+            const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
             const res = await fetch(`/api/admin/whatsapp/confirm/${msgId}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': csrfToken,
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify({ is_sent: isSent })
             });
 
-            const data = await res.json();
+            let data = {};
+            try {
+                data = await res.json();
+            } catch (jsonErr) {
+                console.error("Non-JSON error response from server:", jsonErr);
+            }
+
             document.getElementById('wa-confirm-modal').style.display = 'none';
 
             if (res.ok && data.success) {
                 window.location.reload();
             } else {
-                alert(data.message || "Error updating status.");
+                alert(data.message || `Error updating status (HTTP ${res.status}).`);
             }
         } catch (err) {
             console.error("Confirm error:", err);
