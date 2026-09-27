@@ -206,11 +206,14 @@ def create_app():
 
     @app.context_processor
     def inject_global_data():
+        if request.path.startswith('/static/') or request.endpoint == 'static':
+            return dict(all_categories=[], wishlist_product_ids=[], image_url=resolve_image_url)
         wishlist_ids = []
         if current_user.is_authenticated:
             try:
                 from models import Wishlist
-                wishlist_ids = [item.product_id for item in Wishlist.query.filter_by(user_id=current_user.id).all()]
+                rows = Wishlist.query.with_entities(Wishlist.product_id).filter_by(user_id=current_user.id).all()
+                wishlist_ids = [r[0] for r in rows]
             except Exception:
                 pass
         return dict(
@@ -227,9 +230,9 @@ def create_app():
         if request.method == 'HEAD':
             return Response('', status=200, mimetype='text/html')
 
-    # 8. Outgoing Security Headers & Slow Request Logging Injector
+    # 8. Outgoing Security Headers, Gzip Compression & Slow Request Logging Injector
     @app.after_request
-    def inject_security_headers(response):
+    def inject_security_headers_and_compress(response):
         from flask import g
         import time
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
@@ -247,6 +250,25 @@ def create_app():
                 app.logger.error(f"[CRITICAL_SLOW_REQUEST] method={request.method} path={request.path} duration_ms={duration_ms} status={response.status_code} pid={pid}")
             elif duration_ms > 1000:
                 app.logger.warning(f"[SLOW_REQUEST] method={request.method} path={request.path} duration_ms={duration_ms} status={response.status_code} pid={pid}")
+
+        # Transparent Gzip Compression for HTML, JSON, JS, CSS responses > 500 bytes
+        if (response.status_code >= 200 and response.status_code < 300 and 
+            'Content-Encoding' not in response.headers and not response.direct_passthrough):
+            accept_encoding = request.headers.get('Accept-Encoding', '')
+            if 'gzip' in accept_encoding.lower():
+                mimetype = response.mimetype or ''
+                if mimetype.startswith('text/') or mimetype in ('application/json', 'application/javascript', 'image/svg+xml'):
+                    if response.data and len(response.data) >= 500:
+                        import gzip, io
+                        gzip_buffer = io.BytesIO()
+                        with gzip.GzipFile(mode='wb', compresslevel=6, fileobj=gzip_buffer) as gzip_file:
+                            gzip_file.write(response.data)
+                        compressed_data = gzip_buffer.getvalue()
+                        response.data = compressed_data
+                        response.headers['Content-Encoding'] = 'gzip'
+                        response.headers['Content-Length'] = str(len(compressed_data))
+                        response.headers['Vary'] = 'Accept-Encoding'
+
         return response
 
     @app.teardown_appcontext

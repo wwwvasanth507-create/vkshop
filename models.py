@@ -181,13 +181,20 @@ class Brand(db.Model):
 class Product(db.Model):
     __tablename__ = 'products'
     
+    __table_args__ = (
+        db.Index('idx_product_active_created', 'is_active', 'created_at'),
+        db.Index('idx_product_active_cat', 'is_active', 'category_id'),
+        db.Index('idx_product_active_seller', 'is_active', 'seller_id'),
+        db.Index('idx_product_active_brand', 'is_active', 'brand_id'),
+    )
+    
     id = db.Column(db.Integer, primary_key=True)
-    seller_id = db.Column(db.Integer, db.ForeignKey('store_profiles.id', ondelete='CASCADE'), nullable=False)
-    category_id = db.Column(db.Integer, db.ForeignKey('categories.id', ondelete='SET NULL'), nullable=True)
-    brand_id = db.Column(db.Integer, db.ForeignKey('brands.id', ondelete='SET NULL'), nullable=True)
+    seller_id = db.Column(db.Integer, db.ForeignKey('store_profiles.id', ondelete='CASCADE'), nullable=False, index=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('categories.id', ondelete='SET NULL'), nullable=True, index=True)
+    brand_id = db.Column(db.Integer, db.ForeignKey('brands.id', ondelete='SET NULL'), nullable=True, index=True)
     
     name = db.Column(db.String(200), nullable=False, index=True)
-    slug = db.Column(db.String(200), unique=True, nullable=False)
+    slug = db.Column(db.String(200), unique=True, nullable=False, index=True)
     description = db.Column(db.Text, nullable=False)
     
     # Store dynamic fields as JSON string or Text
@@ -212,13 +219,13 @@ class Product(db.Model):
     _available_districts = db.Column('available_districts', db.Text, default='[]')
     
     is_digital = db.Column(db.Boolean, default=False)
-    is_active = db.Column(db.Boolean, default=True)
+    is_active = db.Column(db.Boolean, default=True, index=True)
     shipping_charges = db.Column(db.Float, default=0.0)  # Kept for legacy; not editable by seller
     tax_percentage = db.Column(db.Float, default=0.0)    # Kept for legacy; not editable by seller
     delivery_days = db.Column(db.Integer, default=3)
     views = db.Column(db.Integer, default=0)
     clicks = db.Column(db.Integer, default=0)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     
     # Relationships
     store = db.relationship('StoreProfile', back_populates='products')
@@ -464,9 +471,9 @@ class ProductImage(db.Model):
     __tablename__ = 'product_images'
     
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
     image_path = db.Column(db.String(255), nullable=False)
-    is_primary = db.Column(db.Boolean, default=False)
+    is_primary = db.Column(db.Boolean, default=False, index=True)
     
     product = db.relationship('Product', back_populates='images')
 
@@ -474,8 +481,8 @@ class ProductVariant(db.Model):
     __tablename__ = 'product_variants'
     
     id = db.Column(db.Integer, primary_key=True)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
-    sku = db.Column(db.String(50), unique=True, nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
+    sku = db.Column(db.String(50), unique=True, nullable=False, index=True)
     stock = db.Column(db.Integer, default=0)
     price = db.Column(db.Float, nullable=False)
     discount_price = db.Column(db.Float, nullable=True)
@@ -508,8 +515,8 @@ class CartItem(db.Model):
     __tablename__ = 'cart'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id', ondelete='SET NULL'), nullable=True)
     quantity = db.Column(db.Integer, default=1, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -522,8 +529,8 @@ class Wishlist(db.Model):
     __tablename__ = 'wishlist'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship('User', back_populates='wishlist')
@@ -559,10 +566,14 @@ class Address(db.Model):
 
 class Order(db.Model):
     __tablename__ = 'orders'
+    __table_args__ = (
+        db.Index('idx_order_user_created', 'user_id', 'created_at'),
+        db.Index('idx_order_status_created', 'status', 'created_at'),
+    )
     
     id = db.Column(db.Integer, primary_key=True)
     order_number = db.Column(db.String(50), unique=True, nullable=False, index=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
     address_id = db.Column(db.Integer, db.ForeignKey('addresses.id', ondelete='SET NULL'), nullable=True)
     
     # Financial fields
@@ -583,7 +594,7 @@ class Order(db.Model):
     wallet_deduction = db.Column(db.Float, default=0.0)
     reward_points_deduction = db.Column(db.Float, default=0.0)
     
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
@@ -597,8 +608,8 @@ class OrderItem(db.Model):
     __tablename__ = 'order_items'
     
     id = db.Column(db.Integer, primary_key=True)
-    order_id = db.Column(db.Integer, db.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('orders.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True, index=True)
     variant_id = db.Column(db.Integer, db.ForeignKey('product_variants.id', ondelete='SET NULL'), nullable=True)
     
     quantity = db.Column(db.Integer, nullable=False)
@@ -655,8 +666,8 @@ class Review(db.Model):
     __tablename__ = 'reviews'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
     rating = db.Column(db.Integer, nullable=False) # 1 to 5
     title = db.Column(db.String(100), nullable=True)
     content = db.Column(db.Text, nullable=False)
@@ -729,8 +740,8 @@ class RecentlyViewed(db.Model):
     __tablename__ = 'recently_viewed'
     
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='CASCADE'), nullable=False, index=True)
     viewed_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     user = db.relationship('User', back_populates='recently_viewed')

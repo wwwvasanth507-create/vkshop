@@ -111,8 +111,8 @@ def index():
     categories = get_cached_categories()
     
     # Deals, Best Sellers, and New Arrivals
-    featured_products = Product.query.filter_by(is_active=True).limit(8).all()
-    trending_products = Product.query.filter_by(is_active=True).order_by(Product.created_at.desc()).limit(8).all()
+    featured_products = Product.query.options(db.joinedload(Product.images), db.joinedload(Product.category), db.joinedload(Product.store)).filter_by(is_active=True).limit(8).all()
+    trending_products = Product.query.options(db.joinedload(Product.images), db.joinedload(Product.category), db.joinedload(Product.store)).filter_by(is_active=True).order_by(Product.created_at.desc()).limit(8).all()
     
     # Recommendations (Auto-learned interested products)
     user_id = current_user.id if current_user.is_authenticated else None
@@ -136,7 +136,13 @@ def index():
 
 @main_bp.route('/product/<slug>')
 def product_detail(slug):
-    product = Product.query.filter_by(slug=slug, is_active=True).first_or_404()
+    product = Product.query.options(
+        db.joinedload(Product.images),
+        db.joinedload(Product.variants),
+        db.joinedload(Product.category),
+        db.joinedload(Product.brand),
+        db.joinedload(Product.store)
+    ).filter_by(slug=slug, is_active=True).first_or_404()
     
     # Track Product Views Analytics
     product.views += 1
@@ -187,7 +193,11 @@ def category_detail(slug):
     max_price = request.args.get('max_price', type=float)
     sort_by = request.args.get('sort', 'popular')
     
-    query = Product.query.filter_by(category_id=category.id, is_active=True)
+    query = Product.query.options(
+        db.joinedload(Product.images),
+        db.joinedload(Product.category),
+        db.joinedload(Product.store)
+    ).filter_by(category_id=category.id, is_active=True)
     
     if brand_id:
         query = query.filter_by(brand_id=brand_id)
@@ -233,7 +243,11 @@ def search():
         db.session.add(history)
         db.session.commit()
         
-    query = Product.query.filter(Product.is_active == True)
+    query = Product.query.options(
+        db.joinedload(Product.images),
+        db.joinedload(Product.category),
+        db.joinedload(Product.store)
+    ).filter(Product.is_active == True)
     
     if q:
         # Typo tolerance / basic search expansion
@@ -349,7 +363,7 @@ def seller_detail(store_id):
         is_owner = current_user.is_authenticated and (store.user_id == current_user.id or getattr(current_user, 'seller_id', None) == store.id or (hasattr(current_user, 'store_profile') and current_user.store_profile and current_user.store_profile.id == store.id))
         if not current_user.is_authenticated or (not is_admin and not is_owner):
             abort(404)
-    products = Product.query.filter_by(seller_id=store.id, is_active=True).all()
+    products = Product.query.options(db.joinedload(Product.images), db.joinedload(Product.category)).filter_by(seller_id=store.id, is_active=True).all()
     return render_template('main/seller_detail.html', store=store, products=products)
 
 

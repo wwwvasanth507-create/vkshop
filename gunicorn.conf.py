@@ -18,7 +18,10 @@ max_requests_jitter = int(os.environ.get('GUNICORN_MAX_REQUESTS_JITTER', '100'))
 # Bounded Timeout options
 timeout = int(os.environ.get('GUNICORN_TIMEOUT', '60'))
 graceful_timeout = int(os.environ.get('GUNICORN_GRACEFUL_TIMEOUT', '30'))
-keepalive = int(os.environ.get('GUNICORN_KEEPALIVE', '5'))
+keepalive = int(os.environ.get('GUNICORN_KEEPALIVE', '65'))
+
+# Preload application code before worker forks for instant worker startup & lower memory
+preload_app = True
 
 # Logging settings - stream to stdout/stderr for Render log aggregator
 accesslog = "-"

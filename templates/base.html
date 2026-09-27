@@ -6,7 +6,11 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}VKshop | Premium Marketplace{% endblock %}</title>
     
-    <!-- Stylesheets -->
+    <!-- Performance Preconnects & Stylesheets -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://cdn.socket.io" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.socket.io">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}?v=1.1">
     <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     {% block styles %}{% endblock %}
@@ -308,44 +312,36 @@
     <script src="{{ url_for('static', filename='js/search.js') }}"></script>
     <script src="{{ url_for('static', filename='js/ai_assistant.js') }}?v=1.0"></script>
     
-    <!-- Preloader Animation Logic -->
+    <!-- Preloader Fast Reveal Logic -->
     <script>
         (function() {
-            // Check if splash has already been shown in this browser session
+            function hidePreloader() {
+                const loader = document.getElementById('vkshop-preloader');
+                if (loader && loader.style.display !== 'none') {
+                    loader.style.opacity = '0';
+                    setTimeout(function() {
+                        loader.style.display = 'none';
+                        try { sessionStorage.setItem('vkshop_splash_shown', 'true'); } catch(e) {}
+                    }, 300);
+                }
+            }
+
             if (sessionStorage.getItem('vkshop_splash_shown')) {
                 const loader = document.getElementById('vkshop-preloader');
-                if (loader) {
-                    loader.style.display = 'none';
-                }
+                if (loader) loader.style.display = 'none';
                 return;
             }
             
-            // Wait for DOM to cycle words and run timer
-            document.addEventListener("DOMContentLoaded", function() {
-                const words = document.querySelectorAll('.preloader-word');
-                let wordIdx = 0;
-                
-                const wordCycleInterval = setInterval(() => {
-                    if (wordIdx < words.length - 1) {
-                        words[wordIdx].classList.remove('active');
-                        wordIdx++;
-                        words[wordIdx].classList.add('active');
-                    } else {
-                        clearInterval(wordCycleInterval);
-                    }
-                }, 1400); // slower cycling for 6s duration
-                
-                setTimeout(() => {
-                    const loader = document.getElementById('vkshop-preloader');
-                    if (loader) {
-                        loader.style.opacity = '0';
-                        setTimeout(() => {
-                            loader.style.display = 'none';
-                            sessionStorage.setItem('vkshop_splash_shown', 'true');
-                        }, 700);
-                    }
-                }, 6000); // 6 seconds display duration
-            });
+            if (document.readyState === 'complete' || document.readyState === 'interactive') {
+                setTimeout(hidePreloader, 350);
+            } else {
+                document.addEventListener("DOMContentLoaded", function() {
+                    setTimeout(hidePreloader, 350);
+                });
+                window.addEventListener("load", function() {
+                    hidePreloader();
+                });
+            }
         })();
     </script>
     {% if current_user.is_authenticated and current_user.role == 'admin' %}

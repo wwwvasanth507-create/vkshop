@@ -43,13 +43,17 @@ def populate_visible_status(order):
 
 @customer_bp.route('/customer/dashboard')
 def dashboard():
-    orders = Order.query.filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
+    orders = Order.query.options(
+        db.joinedload(Order.items).joinedload(OrderItem.product).joinedload(Product.images)
+    ).filter_by(user_id=current_user.id).order_by(Order.created_at.desc()).all()
     for o in orders:
         populate_visible_status(o)
     addresses = Address.query.filter_by(user_id=current_user.id).all()
     tickets = SupportTicket.query.filter_by(user_id=current_user.id).order_by(SupportTicket.updated_at.desc()).all()
     points_txs = RewardPoint.query.filter_by(user_id=current_user.id).order_by(RewardPoint.created_at.desc()).all()
-    wishlist = Wishlist.query.filter_by(user_id=current_user.id).all()
+    wishlist = Wishlist.query.options(
+        db.joinedload(Wishlist.product).joinedload(Product.images)
+    ).filter_by(user_id=current_user.id).all()
     
     return render_template(
         'customer/dashboard.html',
@@ -142,7 +146,10 @@ def delete_address(addr_id):
 # ----------------- CART & WISHLIST -----------------
 @customer_bp.route('/cart')
 def view_cart():
-    cart_items = CartItem.query.filter_by(user_id=current_user.id).all()
+    cart_items = CartItem.query.options(
+        db.joinedload(CartItem.product).joinedload(Product.images),
+        db.joinedload(CartItem.variant)
+    ).filter_by(user_id=current_user.id).all()
     
     # Calculate cart values
     subtotal = 0.0
