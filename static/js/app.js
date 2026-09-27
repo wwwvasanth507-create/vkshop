@@ -110,6 +110,24 @@ function checkUnreadNotifications() {
         .catch(err => console.debug('Unread count check skipped:', err));
 }
 
+// Fetch cart items count and update red notification badge
+function updateCartBadge() {
+    const badge = document.getElementById('cart-badge');
+    if (!badge) return;
+
+    fetch('/api/cart/items-count')
+        .then(r => r.json())
+        .then(data => {
+            if (data && typeof data.count === 'number' && data.count > 0) {
+                badge.textContent = data.count > 99 ? '99+' : data.count;
+                badge.style.display = 'inline-flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        })
+        .catch(err => console.debug('Cart count check skipped:', err));
+}
+
 // Native Browser Push Notification Trigger
 function triggerNativePushNotification(title, message) {
     if (!("Notification" in window)) return;
@@ -177,8 +195,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize Socket.IO
     initSocketIO();
     
-    // Check unread notifications and request push permission
+    // Check unread notifications, cart count, and request push permission
     checkUnreadNotifications();
+    updateCartBadge();
     if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission();
     }
