@@ -397,13 +397,8 @@ def returns_replacements():
     return render_template('main/returns.html')
 
 @main_bp.route('/google7eb473ec0eff88a6.html')
-@main_bp.route('/google<string:hash_code>.html')
-def google_verification(hash_code=None):
-    if hash_code:
-        content = f"google-site-verification: google{hash_code}.html"
-    else:
-        content = "google-site-verification: google7eb473ec0eff88a6.html"
-    return Response(content, mimetype='text/html')
+def google_verification():
+    return Response("google-site-verification: google7eb473ec0eff88a6.html", mimetype='text/html')
 
 @main_bp.route('/robots.txt')
 def robots_txt():

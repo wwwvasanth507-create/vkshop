@@ -12,13 +12,9 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
 
-    // 1. Google Site Verification File Handler
-    if (
-      url.pathname === "/google7eb473ec0eff88a6.html" ||
-      url.pathname.match(/^\/google[a-f0-9]+\.html$/i)
-    ) {
-      const filename = url.pathname.replace("/", "");
-      return new Response(`google-site-verification: ${filename}`, {
+    // 1. Google Site Verification File Handler (Strict Exact Match)
+    if (url.pathname === "/google7eb473ec0eff88a6.html") {
+      return new Response("google-site-verification: google7eb473ec0eff88a6.html", {
         status: 200,
         headers: {
           "Content-Type": "text/html; charset=utf-8",
