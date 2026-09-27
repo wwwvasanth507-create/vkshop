@@ -401,7 +401,15 @@ def create_app():
                 sync_local_uploads_to_minio()
             except Exception as e:
                 app.logger.error(f"Failed to sync local uploads to MinIO on startup: {e}")
-            
+
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 31536000
+
+    @app.after_request
+    def add_cache_headers(response):
+        if request.path.startswith('/static/'):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
+
     return app
 
 app = create_app()

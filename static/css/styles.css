@@ -2056,4 +2056,95 @@ table, .table {
     border-color: #2563eb;
 }
 
+/* ==========================================
+   MOBILE & TABLET RESPONSIVE SYSTEM
+   ========================================== */
+
+@media (max-width: 768px) {
+    /* Hide VKshop text name on mobile screens - display logo image only */
+    .logo-text {
+        display: none !important;
+    }
+
+    .logo-img {
+        height: 36px !important;
+        width: 36px !important;
+        object-fit: contain;
+    }
+
+    .logo {
+        margin-right: 0.25rem !important;
+        gap: 0 !important;
+    }
+
+    /* Navbar container padding and gap tuning */
+    .navbar {
+        padding: 0.4rem 0 !important;
+    }
+
+    .navbar-container {
+        gap: 0.4rem !important;
+    }
+
+    /* Hide text labels in header buttons on mobile for clean icon layout */
+    .nav-text {
+        display: none !important;
+    }
+
+    .nav-actions {
+        gap: 0.15rem !important;
+    }
+
+    .nav-btn {
+        padding: 0.4rem 0.45rem !important;
+        font-size: 1.05rem !important;
+    }
+
+    /* Hide category select in header search bar on small screens to save space */
+    .search-input-group select {
+        display: none !important;
+    }
+
+    .search-input-group input {
+        font-size: 0.85rem !important;
+        padding: 0.35rem 0.4rem !important;
+    }
+
+    .search-input-group button {
+        padding: 0.35rem 0.35rem !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .container {
+        padding: 0 0.75rem !important;
+    }
+
+    /* Compact floating Gemini AI button on mobile */
+    .gemini-ai-floating-btn {
+        bottom: 14px !important;
+        right: 14px !important;
+        padding: 0.45rem 0.8rem !important;
+        font-size: 0.8rem !important;
+        border-radius: 9999px !important;
+    }
+
+    .gemini-ai-floating-btn span {
+        font-size: 0.8rem !important;
+    }
+
+    /* Responsive full width Gemini drawer for mobile */
+    .gemini-ai-drawer {
+        right: 8px !important;
+        left: 8px !important;
+        width: auto !important;
+        max-width: calc(100vw - 16px) !important;
+        bottom: 64px !important;
+        height: 460px !important;
+        max-height: calc(100vh - 90px) !important;
+        border-radius: 16px !important;
+    }
+}
+
+
 

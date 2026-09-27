@@ -38,7 +38,7 @@
                         <input type="number" id="qty-input-{{ item.id }}" name="quantity" value="{{ item.quantity }}" min="1" class="form-control" style="width: 65px; padding: 0.25rem 0.5rem; text-align: center;" onchange="this.form.submit()">
                         <span style="font-size: 0.8rem; color: var(--text-muted);">Qty</span>
                     </form>
-                    <a href="{{ url_for('customer.remove_cart_item', item_id=item.id) }}" class="text-danger" style="font-size: 0.85rem; font-weight: 600;"><i class="fa-solid fa-trash"></i> Remove</a>
+                    <a href="{{ url_for('customer.remove_cart_item', item_id=item.id) }}" class="text-danger" style="font-size: 0.85rem; font-weight: 600; white-space: nowrap; display: inline-flex; align-items: center; gap: 0.35rem;"><i class="fa-solid fa-trash"></i> Remove</a>
                 </div>
             </div>
             
