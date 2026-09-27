@@ -404,14 +404,20 @@ def google_verification():
 def robots_txt():
     content = """User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /checkout
-Disallow: /cart
-Disallow: /api/
 
 Sitemap: https://home.vkshop.workers.dev/sitemap.xml
 """
     return Response(content, mimetype='text/plain')
+
+@main_bp.route('/sitemap.xml')
+def sitemap_xml():
+    content = """<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>https://home.vkshop.workers.dev/</loc>
+  </url>
+</urlset>"""
+    return Response(content, mimetype='application/xml')
 
 
 

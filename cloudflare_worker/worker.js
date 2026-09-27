@@ -27,10 +27,6 @@ export default {
     if (url.pathname === "/robots.txt") {
       const robotsTxt = `User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /checkout
-Disallow: /cart
-Disallow: /api/
 
 Sitemap: ${url.origin}/sitemap.xml
 `;
@@ -45,34 +41,17 @@ Sitemap: ${url.origin}/sitemap.xml
 
     // 3. SEO sitemap.xml Handler
     if (url.pathname === "/sitemap.xml") {
-      const originBase = (env.ORIGIN_URL || "https://vkshop.dpdns.org").replace(/\/+$/, "");
-      try {
-        const sitemapRes = await fetch(`${originBase}/sitemap.xml`, { headers: request.headers });
-        if (sitemapRes.status === 200) {
-          return sitemapRes;
-        }
-      } catch (e) {
-        // Fallback sitemap if origin fails or doesn't have it
-      }
-
       const defaultSitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>${url.origin}/</loc>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-  <url>
-    <loc>${url.origin}/products</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
   </url>
 </urlset>`;
       return new Response(defaultSitemap, {
         status: 200,
         headers: {
           "Content-Type": "application/xml; charset=utf-8",
-          "Cache-Control": "public, max-age=3600",
+          "Cache-Control": "public, max-age=86400",
         },
       });
     }
