@@ -7,9 +7,54 @@ document.addEventListener('DOMContentLoaded', () => {
     initGeminiAIProjectManagerDashboard();
 });
 
+// Helper: Convert Gemini Markdown format into clean HTML
+function formatMarkdownToHTML(markdownText) {
+    if (!markdownText) return '';
+    let str = String(markdownText);
+
+    // Headers ### Title
+    str = str.replace(/^###\s*(.*$)/gim, '<h4 style="margin: 0.6rem 0 0.3rem; color: #4338ca; font-weight: 700; font-size: 0.98rem;">$1</h4>');
+    str = str.replace(/^##\s*(.*$)/gim, '<h3 style="margin: 0.7rem 0 0.4rem; color: #3730a3; font-weight: 800; font-size: 1.05rem;">$1</h3>');
+    str = str.replace(/^#\s*(.*$)/gim, '<h2 style="margin: 0.8rem 0 0.5rem; color: #312e81; font-weight: 800; font-size: 1.15rem;">$1</h2>');
+
+    // Bold **text**
+    str = str.replace(/\*\*(.*?)\*\*/g, '<strong style="color: var(--text-primary); font-weight: 700;">$1</strong>');
+    
+    // Italic *text*
+    str = str.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Bullet list lines "- item" or "* item"
+    const lines = str.split('\n');
+    let inList = false;
+    let resultLines = [];
+
+    for (let line of lines) {
+        let trimmed = line.trim();
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+            if (!inList) {
+                resultLines.push('<ul style="margin: 0.4rem 0; padding-left: 1.25rem; font-size: 0.88rem; line-height: 1.5;">');
+                inList = true;
+            }
+            resultLines.push(`<li style="margin-bottom: 0.3rem;">${trimmed.substring(2)}</li>`);
+        } else {
+            if (inList) {
+                resultLines.push('</ul>');
+                inList = false;
+            }
+            if (trimmed.length > 0) {
+                resultLines.push(`<p style="margin: 0.3rem 0; line-height: 1.5;">${trimmed}</p>`);
+            }
+        }
+    }
+    if (inList) {
+        resultLines.push('</ul>');
+    }
+
+    return resultLines.join('');
+}
+
 // 1. Floating Storefront Gemini AI Shopping Assistant Drawer Widget
 function initGeminiAIAssistantWidget() {
-    // Inject floating toggle button and chat drawer if not present
     if (document.getElementById('gemini-ai-floating-btn')) return;
 
     const btn = document.createElement('button');
@@ -32,7 +77,7 @@ function initGeminiAIAssistantWidget() {
         </div>
         <div class="gemini-ai-body" id="gemini-ai-body">
             <div class="gemini-msg bot">
-                👋 Hello! I am your <strong>Gemini AI Store Assistant</strong>. Ask me to recommend products, find deals, or give shopping suggestions!
+                👋 Hello! I am your <strong>Gemini AI Store Assistant</strong>. Ask me for product advice, shopping recommendations, or deals!
             </div>
             <div style="display: flex; gap: 0.35rem; flex-wrap: wrap; margin-top: 0.25rem;" id="gemini-ai-prompts">
                 <button class="gemini-ai-badge-btn" onclick="sendGeminiPreset('Top smartphone picks under 20000')">📱 Phone deals</button>
@@ -41,7 +86,7 @@ function initGeminiAIAssistantWidget() {
             </div>
         </div>
         <form class="gemini-ai-footer" id="gemini-ai-form">
-            <input type="text" id="gemini-ai-input" class="gemini-ai-input" placeholder="Ask Gemini AI (e.g., best shoes under 2000)..." autocomplete="off">
+            <input type="text" id="gemini-ai-input" class="gemini-ai-input" placeholder="Ask Gemini AI (e.g. best shoes under 2000)..." autocomplete="off">
             <button type="submit" class="gemini-ai-send" title="Send"><i class="fa-solid fa-paper-plane"></i></button>
         </form>
     `;
@@ -61,13 +106,12 @@ function initGeminiAIAssistantWidget() {
     document.getElementById('gemini-ai-form').addEventListener('submit', (e) => {
         e.preventDefault();
         const input = document.getElementById('gemini-ai-input');
-        const text = input.value.strip ? input.value.strip() : input.value.trim();
+        const text = input.value.trim();
         if (!text) return;
         
         appendGeminiMessage(text, 'user');
         input.value = '';
 
-        // Request Gemini AI Project Assistant / Recommendations
         appendGeminiThinking();
 
         fetch('/api/ai/project-assistant', {
@@ -84,7 +128,7 @@ function initGeminiAIAssistantWidget() {
             if (data && data.reply) {
                 appendGeminiMessage(data.reply, 'bot');
             } else {
-                appendGeminiMessage("I found great options for you! Search our catalog for live live stock and prices.", 'bot');
+                appendGeminiMessage("I found great catalog items for you! Explore our latest products.", 'bot');
             }
         })
         .catch(err => {
@@ -102,13 +146,13 @@ function sendGeminiPreset(promptText) {
     }
 }
 
-function appendGeminiMessage(htmlContent, sender) {
+function appendGeminiMessage(content, sender) {
     const body = document.getElementById('gemini-ai-body');
     if (!body) return;
 
     const msg = document.createElement('div');
     msg.className = `gemini-msg ${sender}`;
-    msg.innerHTML = htmlContent;
+    msg.innerHTML = sender === 'bot' ? formatMarkdownToHTML(content) : content;
     body.appendChild(msg);
     body.scrollTop = body.scrollHeight;
 }
@@ -119,7 +163,7 @@ function appendGeminiThinking() {
     const thinking = document.createElement('div');
     thinking.id = 'gemini-ai-thinking';
     thinking.className = 'gemini-msg bot';
-    thinking.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Gemini AI is analyzing...`;
+    thinking.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="color: #2563eb;"></i> Gemini AI is analyzing...`;
     body.appendChild(thinking);
     body.scrollTop = body.scrollHeight;
 }
@@ -138,7 +182,10 @@ function initGeminiAIVoiceSearch() {
 
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-    voiceBtn.addEventListener('click', () => {
+    voiceBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
         if (SpeechRecognition) {
             try {
                 const recognition = new SpeechRecognition();
@@ -147,7 +194,8 @@ function initGeminiAIVoiceSearch() {
                 recognition.lang = 'en-US';
 
                 voiceBtn.style.color = '#ef4444';
-                searchInput.placeholder = "🎤 Listening... Speak now (English/Tamil/Tanglish)";
+                voiceBtn.style.transform = 'scale(1.2)';
+                searchInput.placeholder = "🎤 Listening... Speak now in English or Tamil...";
 
                 recognition.onresult = (event) => {
                     const transcript = event.results[0][0].transcript;
@@ -174,16 +222,24 @@ function initGeminiAIVoiceSearch() {
                     })
                     .finally(() => {
                         voiceBtn.style.color = '';
+                        voiceBtn.style.transform = '';
                     });
                 };
 
-                recognition.onerror = () => {
+                recognition.onerror = (err) => {
                     voiceBtn.style.color = '';
-                    searchInput.placeholder = "Search products, brands, and categories...";
+                    voiceBtn.style.transform = '';
+                    console.warn('Voice speech recognition error:', err);
+                    fallbackVoicePrompt(searchInput, searchForm);
+                };
+
+                recognition.onend = () => {
+                    voiceBtn.style.color = '';
+                    voiceBtn.style.transform = '';
                 };
 
                 recognition.start();
-            } catch (e) {
+            } catch (err) {
                 fallbackVoicePrompt(searchInput, searchForm);
             }
         } else {
@@ -193,9 +249,9 @@ function initGeminiAIVoiceSearch() {
 }
 
 function fallbackVoicePrompt(searchInput, searchForm) {
-    const userVoiceText = prompt("Voice Typing (Speech Recognition): Type or speak your request:");
-    if (userVoiceText) {
-        searchInput.value = userVoiceText;
+    const userVoiceText = prompt("Voice Typing Search: Type or speak your product query:");
+    if (userVoiceText && userVoiceText.trim()) {
+        searchInput.value = userVoiceText.trim();
         if (searchForm) searchForm.submit();
     }
 }
@@ -268,7 +324,7 @@ function initGeminiAIProjectManagerDashboard() {
                 <h3 style="margin: 0; font-size: 1.1rem; color: #4338ca; display: flex; align-items: center; gap: 0.5rem;">
                     <i class="fa-solid fa-sparkles" style="color: #7c3aed;"></i> Gemini AI Project & Store Manager
                 </h3>
-                <span class="badge" style="background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; padding: 0.25rem 0.6rem;">Gemini AI 2.5 Flash</span>
+                <span class="badge" style="background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; padding: 0.25rem 0.6rem;">Gemini AI 3.6 Flash</span>
             </div>
             <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1rem;">
                 Ask Gemini AI for project management insights, inventory restock suggestions, or promotional strategy ideas.
@@ -281,7 +337,7 @@ function initGeminiAIProjectManagerDashboard() {
             <div id="dashboard-gemini-response" style="display: none; background: var(--bg-primary); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border-color); font-size: 0.9rem; line-height: 1.5; margin-bottom: 1rem;">
             </div>
             <div style="display: flex; gap: 0.5rem;">
-                <input type="text" id="dashboard-gemini-input" class="form-control" placeholder="Ask Gemini AI Project Assistant..." style="flex: 1;">
+                <input type="text" id="dashboard-gemini-input" class="form-control" placeholder="Ask Gemini AI Project Assistant..." style="flex: 1;" onkeypress="if(event.key==='Enter') submitDashboardGemini();">
                 <button type="button" class="btn btn-primary" onclick="submitDashboardGemini()" style="background: linear-gradient(135deg, #2563eb, #7c3aed); border: none;">Ask AI</button>
             </div>
         </div>
@@ -305,7 +361,7 @@ function submitDashboardGemini() {
     if (!query) return;
 
     respBox.style.display = 'block';
-    respBox.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="color: #7c3aed;"></i> <strong>Gemini AI</strong> is generating project insights...`;
+    respBox.innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="color: #7c3aed;"></i> <strong>Gemini AI</strong> is analyzing store data...`;
 
     fetch('/api/ai/project-assistant', {
         method: 'POST',
@@ -318,10 +374,17 @@ function submitDashboardGemini() {
     .then(r => r.json())
     .then(data => {
         if (data && data.reply) {
-            respBox.innerHTML = `<strong>🤖 Gemini AI Response:</strong><br><div style="margin-top: 0.5rem;">${data.reply.replace(/\n/g, '<br>')}</div>`;
+            respBox.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; color: #4338ca; font-weight: 700;">
+                    <i class="fa-solid fa-robot"></i> Gemini AI Store Response:
+                </div>
+                <div style="background: var(--bg-secondary); padding: 0.85rem; border-radius: 8px; border-left: 3px solid #7c3aed;">
+                    ${formatMarkdownToHTML(data.reply)}
+                </div>
+            `;
         }
     })
     .catch(err => {
-        respBox.innerHTML = `<span style="color: var(--danger);">Gemini AI temporarily unavailable. Please try again.</span>`;
+        respBox.innerHTML = `<span style="color: var(--danger);">Gemini AI connection issue. Please check network.</span>`;
     });
 }

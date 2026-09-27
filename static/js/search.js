@@ -72,30 +72,9 @@ function initAutocomplete() {
     });
 }
 
-// Simulated Voice Search
+// Voice Search delegated to Gemini AI Voice Recognition system in ai_assistant.js
 function initVoiceSearch() {
-    const voiceBtn = document.getElementById('voice-search-btn');
-    const searchInput = document.getElementById('search-input');
-    if (!voiceBtn || !searchInput) return;
-
-    voiceBtn.addEventListener('click', () => {
-        voiceBtn.style.color = 'var(--danger)';
-        searchInput.placeholder = "Listening... Speak now";
-        
-        // Mock recognition feedback after 2 seconds
-        setTimeout(() => {
-            const speechQueries = ["Smartphones", "Wireless Earbuds", "Leather Jackets", "Men Running Shoes"];
-            const randomPick = speechQueries[Math.floor(Math.random() * speechQueries.length)];
-            
-            searchInput.value = randomPick;
-            searchInput.placeholder = "Search products, brands, and categories...";
-            voiceBtn.style.color = 'var(--text-secondary)';
-            
-            // Trigger search submit form automatically
-            const searchForm = document.getElementById('search-form');
-            if (searchForm) searchForm.submit();
-        }, 2200);
-    });
+    // Handled by initGeminiAIVoiceSearch() in ai_assistant.js
 }
 
 // Simulated Barcode / QR Code Search
