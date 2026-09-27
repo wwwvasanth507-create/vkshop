@@ -132,6 +132,21 @@ Sitemap: ${url.origin}/sitemap.xml
         responseHeaders.set("Access-Control-Allow-Credentials", "true");
       }
 
+      // Inject Google Verification Meta Tag into HTML pages at Edge
+      const contentType = responseHeaders.get("content-type") || "";
+      if (contentType.includes("text/html") && url.pathname === "/") {
+        let html = await response.text();
+        const verificationMeta = `<meta name="google-site-verification" content="g17FdWOZ4SxlTr1CEwiQ6jAR876aPZnrYqgf4-CjfKk" />`;
+        if (!html.includes("g17FdWOZ4SxlTr1CEwiQ6jAR876aPZnrYqgf4-CjfKk")) {
+          html = html.replace("<head>", `<head>\n    ${verificationMeta}`);
+        }
+        return new Response(html, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: responseHeaders,
+        });
+      }
+
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
