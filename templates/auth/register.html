@@ -101,37 +101,54 @@
 
         <!-- Seller Documents Fields -->
         <div id="seller-verification-fields" style="display: none; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
-            <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Seller Verification Documents</h4>
+            <h4 style="margin-bottom: 1rem; color: var(--text-primary);">Seller Verification & Payment Details</h4>
             
             <div class="form-group">
-                <label for="aadhaar_number">Aadhaar Number</label>
+                <label for="store_contact"><i class="fa-solid fa-phone" style="color: var(--primary);"></i> Seller Contact Phone Number <span style="color: var(--danger);">*</span></label>
+                <input type="text" id="store_contact" name="store_contact" class="form-control" placeholder="e.g. 9876543210 (10-digit mobile number)">
+            </div>
+            
+            <div class="form-group">
+                <label for="upi_id"><i class="fa-solid fa-qrcode" style="color: var(--primary);"></i> Payment Receiving UPI ID <span style="color: var(--danger);">*</span></label>
+                <input type="text" id="upi_id" name="upi_id" class="form-control" placeholder="e.g. yourname@upi / 9876543210@paytm / name@okaxis">
+                <small style="color: var(--text-muted); font-size: 0.8rem; display: block; margin-top: 0.25rem;">Customers & platform payouts will send payments to this UPI ID.</small>
+            </div>
+            
+            <div class="form-group">
+                <label for="qr_code"><i class="fa-solid fa-file-image" style="color: var(--primary);"></i> Upload Payment UPI QR Code (Optional)</label>
+                <input type="file" id="qr_code" name="qr_code" class="form-control-file" accept="image/*">
+                <small style="color: var(--text-muted); font-size: 0.8rem; display: block; margin-top: 0.25rem;">Upload your GPay / PhonePe / Paytm / BHIM QR code image.</small>
+            </div>
+
+            <div class="form-group" style="margin-top: 1.25rem;">
+                <label for="aadhaar_number"><i class="fa-solid fa-id-card" style="color: var(--primary);"></i> Aadhaar Number <span style="color: var(--danger);">*</span></label>
                 <input type="text" id="aadhaar_number" name="aadhaar_number" class="form-control" placeholder="Enter 12-digit Aadhaar Number">
             </div>
             <div class="form-group">
-                <label for="aadhaar_front">Upload copy of Aadhaar Card (Front side)</label>
+                <label for="aadhaar_front">Upload copy of Aadhaar Card (Front side) <span style="color: var(--danger);">*</span></label>
                 <input type="file" id="aadhaar_front" name="aadhaar_front" class="form-control-file" accept="image/*">
             </div>
             <div class="form-group">
-                <label for="aadhaar_back">Upload copy of Aadhaar Card (Back side)</label>
+                <label for="aadhaar_back">Upload copy of Aadhaar Card (Back side) <span style="color: var(--danger);">*</span></label>
                 <input type="file" id="aadhaar_back" name="aadhaar_back" class="form-control-file" accept="image/*">
             </div>
             <div class="form-group">
-                <label for="photo">Upload Photo</label>
+                <label for="photo">Upload Photo <span style="color: var(--danger);">*</span></label>
                 <input type="file" id="photo" name="photo" class="form-control-file" accept="image/*">
             </div>
             <div class="form-group">
-                <label for="signature">Upload Signature</label>
+                <label for="signature">Upload Signature <span style="color: var(--danger);">*</span></label>
                 <input type="file" id="signature" name="signature" class="form-control-file" accept="image/*">
             </div>
             
             <div style="border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 1rem; margin-top: 1.5rem; background-color: var(--bg-tertiary);">
                 <h5 style="color: var(--danger); margin-bottom: 0.5rem;"><i class="fa-solid fa-triangle-exclamation"></i> Legal Agreement</h5>
                 <p style="font-size: 0.85rem; line-height: 1.4; color: var(--text-secondary); margin-bottom: 0.75rem;">
-                    If you are not sending the product, take commission from the users and not pay platform commission, and if your address is used, the FIR Police case will be appointed to you. You will face the consequences.
+                    If you do not fulfill orders, collect money outside platform rules, or refuse commission, legal police proceedings (FIR) will be initiated against your registered address and phone number.
                 </p>
                 <div style="display: flex; align-items: flex-start; gap: 0.5rem;">
                     <input type="checkbox" id="agreed" name="agreed" style="margin-top: 0.25rem;">
-                    <label for="agreed" style="font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">I read and agree to the consequences of the agreement</label>
+                    <label for="agreed" style="font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text-primary);">I read and agree to the consequences of the legal agreement</label>
                 </div>
             </div>
         </div>
@@ -150,6 +167,8 @@
                 sellerDiv.style.display = 'block';
                 
                 // Make seller fields required when active
+                document.getElementById('store_contact').setAttribute('required', 'true');
+                document.getElementById('upi_id').setAttribute('required', 'true');
                 document.getElementById('aadhaar_number').setAttribute('required', 'true');
                 document.getElementById('aadhaar_front').setAttribute('required', 'true');
                 document.getElementById('aadhaar_back').setAttribute('required', 'true');
@@ -161,6 +180,8 @@
                 sellerDiv.style.display = 'none';
                 
                 // Remove required status
+                document.getElementById('store_contact').removeAttribute('required');
+                document.getElementById('upi_id').removeAttribute('required');
                 document.getElementById('aadhaar_number').removeAttribute('required');
                 document.getElementById('aadhaar_front').removeAttribute('required');
                 document.getElementById('aadhaar_back').removeAttribute('required');

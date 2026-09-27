@@ -259,12 +259,20 @@ def store_settings():
         db.session.commit()
         
     if request.method == 'POST':
-        store.name = request.form.get('name', '').strip()
+        name = request.form.get('name', '').strip()
+        upi_id = request.form.get('upi_id', '').strip()
+        store_contact = request.form.get('store_contact', '').strip()
+
+        if not name or not upi_id or not store_contact:
+            flash("Store Name, Phone Number, and Payment UPI ID are required.", "danger")
+            return render_template('seller/store_settings.html', store=store), 400
+
+        store.name = name
         store.description = request.form.get('description', '').strip()
         store.tax_number = request.form.get('tax_number', '').strip()
-        store.upi_id = request.form.get('upi_id', '').strip()
+        store.upi_id = upi_id
         store.store_address = request.form.get('store_address', '').strip()
-        store.store_contact = request.form.get('store_contact', '').strip()
+        store.store_contact = store_contact
         
         # Files upload (logo / banner / qr_code)
         from services.storage import upload_file_field, storage_service

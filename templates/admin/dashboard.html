@@ -119,8 +119,10 @@
                                     </td>
                                     <td>{{ store.user.username }}</td>
                                     <td>
-                                        <strong>No:</strong> {{ store.aadhaar_number or 'N/A' }}<br>
-                                        <strong>Files:</strong><br>
+                                        <strong>Phone:</strong> {{ store.store_contact or 'N/A' }}<br>
+                                        <strong>UPI ID:</strong> <span style="font-family: monospace; color: var(--primary);">{{ store.upi_id or 'N/A' }}</span><br>
+                                        <strong>Aadhaar:</strong> {{ store.aadhaar_number or 'N/A' }}<br>
+                                        <strong>KYC Files:</strong>
                                         {% if store.aadhaar_front %}
                                             <a href="{{ resolve_image_url(store.aadhaar_front, private=True) }}" target="_blank">Front</a> |
                                         {% endif %}
@@ -132,6 +134,9 @@
                                         {% endif %}
                                         {% if store.signature %}
                                             <a href="{{ resolve_image_url(store.signature, private=True) }}" target="_blank">Signature</a>
+                                        {% endif %}
+                                        {% if store.qr_code_path %}
+                                            | <a href="{{ resolve_image_url(store.qr_code_path) }}" target="_blank">UPI QR</a>
                                         {% endif %}
                                     </td>
                                     <td>{{ store.created_at.strftime('%Y-%m-%d %H:%M') }}</td>

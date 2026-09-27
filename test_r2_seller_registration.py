@@ -47,6 +47,8 @@ class TestR2SellerRegistration(unittest.TestCase):
             'password': 'password123',
             'confirm_password': 'password123',
             'role': Role.SELLER,
+            'store_contact': '9876543210',
+            'upi_id': 'r2seller@upi',
             'aadhaar_number': '987654321012',
             'agreed': 'true',
             'aadhaar_front': (f_front, n_front),

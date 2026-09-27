@@ -23,8 +23,8 @@
         </div>
         
         <div class="form-group">
-            <label for="store-upi">UPI ID for Payments</label>
-            <input type="text" id="store-upi" name="upi_id" class="form-control" value="{{ store.upi_id or '' }}" placeholder="merchant@upi">
+            <label for="store-upi">UPI ID for Receiving Payments <span style="color: var(--danger);">*</span></label>
+            <input type="text" id="store-upi" name="upi_id" class="form-control" value="{{ store.upi_id or '' }}" placeholder="e.g. merchant@upi" required>
         </div>
         
         <div class="form-group">
@@ -33,8 +33,8 @@
         </div>
         
         <div class="form-group">
-            <label for="store-contact">Store Contact Information</label>
-            <input type="text" id="store-contact" name="store_contact" class="form-control" value="{{ store.store_contact or '' }}" placeholder="e.g. +91 99999 88888, contact@mystore.com">
+            <label for="store-contact">Seller Contact Phone Number <span style="color: var(--danger);">*</span></label>
+            <input type="text" id="store-contact" name="store_contact" class="form-control" value="{{ store.store_contact or '' }}" placeholder="e.g. 9876543210" required>
         </div>
         
         <div class="form-group">

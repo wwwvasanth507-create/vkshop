@@ -63,6 +63,8 @@ def register():
             uploaded_keys = []
             seller_docs = {}
             if role == Role.SELLER:
+                store_contact = request.form.get('store_contact', '').strip()
+                upi_id = request.form.get('upi_id', '').strip()
                 aadhaar_number = request.form.get('aadhaar_number', '').strip()
                 agreed = True if request.form.get('agreed') else False
                 
@@ -70,13 +72,14 @@ def register():
                 aadhaar_back_file = request.files.get('aadhaar_back')
                 photo_file = request.files.get('photo')
                 sig_file = request.files.get('signature')
+                qr_code_file = request.files.get('qr_code')
                 
-                if not aadhaar_number or not agreed or \
+                if not store_contact or not upi_id or not aadhaar_number or not agreed or \
                    not aadhaar_front_file or not aadhaar_front_file.filename or \
                    not aadhaar_back_file or not aadhaar_back_file.filename or \
                    not photo_file or not photo_file.filename or \
                    not sig_file or not sig_file.filename:
-                    flash('All seller verification documents and the legal agreement are required.', 'danger')
+                    flash('Seller contact Phone Number, payment receiving UPI ID, Aadhaar details, files, and legal agreement are strictly required.', 'danger')
                     return render_template('auth/register.html'), 400
                 
                 # Check Aadhaar duplicate/banned status
@@ -115,6 +118,14 @@ def register():
                     seller_docs[field_name] = key
                     logger.info(f"[SELLER REG UPLOAD SUCCESS] Username: {username}, Field: {field_name} -> Object Key: {key}")
                 
+                # Upload optional QR Code image if provided
+                if qr_code_file and qr_code_file.filename:
+                    qr_key, qr_err = upload_file_field(qr_code_file, 'stores/qr', is_private=False)
+                    if qr_key and not qr_err:
+                        seller_docs['qr_code_path'] = qr_key
+
+                seller_docs['store_contact'] = store_contact
+                seller_docs['upi_id'] = upi_id
                 seller_docs['aadhaar_number'] = aadhaar_number
                 seller_docs['agreed_to_terms'] = True
 
