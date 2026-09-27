@@ -111,13 +111,23 @@ Sitemap: ${url.origin}/sitemap.xml
         responseHeaders.set("Access-Control-Allow-Credentials", "true");
       }
 
-      // Inject Google Verification Meta Tag into HTML pages at Edge
+      // Inject Google Verification & Core SEO Meta Tags into HTML pages at Edge
       const contentType = responseHeaders.get("content-type") || "";
       if (contentType.includes("text/html") && url.pathname === "/") {
         let html = await response.text();
-        const verificationMeta = `<meta name="google-site-verification" content="g17FdWOZ4SxlTr1CEwiQ6jAR876aPZnrYqgf4-CjfKk" />`;
-        if (!html.includes("g17FdWOZ4SxlTr1CEwiQ6jAR876aPZnrYqgf4-CjfKk")) {
-          html = html.replace("<head>", `<head>\n    ${verificationMeta}`);
+        const seoTags = `
+    <title>VKShop - Online Shopping</title>
+    <meta name="description" content="VKShop - Shop electronics, fashion, groceries and more online.">
+    <meta name="keywords" content="VKShop, VK Shop, online shopping, ecommerce, shopping">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://home.vkshop.workers.dev/">
+    <meta name="google-site-verification" content="g17FdWOZ4SxlTr1CEwiQ6jAR876aPZnrYqgf4-CjfKk" />`;
+        
+        if (html.includes("<title>")) {
+          html = html.replace(/<title>.*?<\/title>/i, `<title>VKShop - Online Shopping</title>`);
+        }
+        if (!html.includes('name="description"')) {
+          html = html.replace("<head>", `<head>${seoTags}`);
         }
         return new Response(html, {
           status: response.status,
