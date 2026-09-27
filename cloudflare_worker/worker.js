@@ -111,6 +111,15 @@ Sitemap: ${url.origin}/sitemap.xml
         responseHeaders.set("Access-Control-Allow-Credentials", "true");
       }
 
+      // Set CORS & Edge Caching for static assets (/static/*, CSS, JS, fonts, images)
+      if (
+        url.pathname.startsWith("/static/") ||
+        url.pathname.match(/\.(css|js|jpeg|jpg|png|webp|ttf|woff|woff2|svg|ico)$/i)
+      ) {
+        responseHeaders.set("Access-Control-Allow-Origin", "*");
+        responseHeaders.set("Cache-Control", "public, max-age=31536000, immutable");
+      }
+
       // Inject Google Verification & Core SEO Meta Tags into HTML pages at Edge
       const contentType = responseHeaders.get("content-type") || "";
       if (contentType.includes("text/html") && url.pathname === "/") {
