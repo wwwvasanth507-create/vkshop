@@ -3,7 +3,12 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static const String baseUrl = "https://vkshop.onrender.com/api";
+  // Permanent Public API Gateway (Domain Independent)
+  static const String permanentGatewayUrl = "https://home.vkshop.workers.dev";
+  static String baseUrl = const String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: "$permanentGatewayUrl/api",
+  );
   static String? userToken;
 
   static Map<String, String> get headers => {

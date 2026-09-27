@@ -121,6 +121,11 @@ def create_app():
         app.config.from_object('config.TestingConfig')
     else:
         app.config.from_object('config.ProductionConfig')
+
+    # Ensure dynamic environment variable overrides for Gateway & Origin
+    app.config['PERMANENT_GATEWAY_URL'] = os.environ.get('GATEWAY_URL', 'https://home.vkshop.workers.dev').rstrip('/')
+    app.config['ORIGIN_URL'] = os.environ.get('ORIGIN_URL', 'http://127.0.0.1:5000').rstrip('/')
+    app.config['APP_URL'] = os.environ.get('APP_URL', app.config['PERMANENT_GATEWAY_URL']).rstrip('/')
     
     # Initialize Server-side Session with Redis if configured
     session_type = app.config.get('SESSION_TYPE')

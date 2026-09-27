@@ -6,6 +6,26 @@ import json
 
 api_bp = Blueprint('api', __name__)
 
+@api_bp.route('/gateway/config')
+def gateway_config():
+    """
+    Returns public gateway architectural details and status.
+    Ensures domain independence across client platforms.
+    """
+    from flask import current_app
+    gateway_url = current_app.config.get('PERMANENT_GATEWAY_URL', 'https://home.vkshop.workers.dev')
+    origin_url = current_app.config.get('ORIGIN_URL', 'http://127.0.0.1:5000')
+    app_url = current_app.config.get('APP_URL', gateway_url)
+    
+    return jsonify({
+        'success': True,
+        'gateway_url': gateway_url,
+        'origin_url': origin_url,
+        'app_url': app_url,
+        'version': '1.0.0',
+        'status': 'operational'
+    })
+
 @api_bp.route('/search-suggestions')
 def search_suggestions():
     q = request.args.get('q', '').strip()

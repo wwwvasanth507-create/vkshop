@@ -21,8 +21,10 @@ class Config:
         if ENV == 'production' and SECRET_KEY == 'dev_secret_key_amazon_flipkart_clone_99384':
             SECRET_KEY = secrets.token_hex(32)
             
-    # Public Application URL (Local Ubuntu Server domain/IP or hostname)
-    APP_URL = os.environ.get('APP_URL', 'http://127.0.0.1:5000').rstrip('/')
+    # Domain-Independent Gateway Architecture
+    PERMANENT_GATEWAY_URL = os.environ.get('GATEWAY_URL', 'https://home.vkshop.workers.dev').rstrip('/')
+    ORIGIN_URL = os.environ.get('ORIGIN_URL', 'http://127.0.0.1:5000').rstrip('/')
+    APP_URL = os.environ.get('APP_URL', PERMANENT_GATEWAY_URL).rstrip('/')
 
     # Permanent Gemini AI API Key Configuration
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AQ.Ab8RN6L8EbjpH6wX34JAB4f4hNWsztRKUum1GbRAdHnwD54rBQ')
