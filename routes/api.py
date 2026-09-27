@@ -100,6 +100,103 @@ def wishlist_toggle(product_id):
         db.session.commit()
         return jsonify({'success': True, 'action': 'added', 'message': 'Added to wishlist.'})
 
+# ==================== GEMINI AI ENDPOINTS ====================
+
+@api_bp.route('/ai/voice-parse', methods=['POST'])
+def ai_voice_parse():
+    data = request.get_json() or {}
+    text = data.get('text', '').strip()
+    from services.ai_service import parse_voice_query_with_ai
+    result = parse_voice_query_with_ai(text)
+    return jsonify(result)
+
+@api_bp.route('/ai/search-suggestions', methods=['GET'])
+def ai_search_suggestions():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify([])
+
+    from models import Category
+    from services.ai_service import get_ai_search_autocomplete
+    categories = [c.name for c in Category.query.all()]
+    suggestions = get_ai_search_autocomplete(q, catalog_categories=categories)
+    return jsonify(suggestions)
+
+@api_bp.route('/ai/recommendations', methods=['POST'])
+def ai_recommendations():
+    data = request.get_json() or {}
+    query = data.get('query', '')
+    prod_name = data.get('product_name', '')
+    limit = data.get('limit', 6)
+
+    from models import Product
+    from services.storage import resolve_image_url
+    from services.ai_service import get_ai_product_recommendations
+
+    products = Product.query.filter_by(is_active=True).limit(20).all()
+    sample = [{
+        'id': p.id,
+        'name': p.name,
+        'category': p.category.name if p.category else 'General',
+        'price': float(p.offer_price),
+        'slug': p.slug,
+        'image_url': resolve_image_url(p.main_image, default_category='products')
+    } for p in products]
+
+    result = get_ai_product_recommendations(user_query=query, current_product_name=prod_name, catalog_sample=sample, limit=limit)
+    return jsonify(result)
+
+@api_bp.route('/ai/seller-generate-desc', methods=['POST'])
+def ai_seller_generate_desc():
+    if not current_user.is_authenticated or current_user.role not in ['seller', 'admin']:
+        return jsonify({'error': 'Unauthorized access'}), 403
+
+    data = request.get_json() or {}
+    name = data.get('name', '').strip()
+    category = data.get('category', '').strip()
+    features = data.get('features', '').strip()
+
+    if not name:
+        return jsonify({'error': 'Product name required'}), 400
+
+    from services.ai_service import generate_ai_product_description
+    desc = generate_ai_product_description(name, category, features)
+    return jsonify(desc)
+
+@api_bp.route('/ai/project-assistant', methods=['POST'])
+def ai_project_assistant():
+    if not current_user.is_authenticated:
+        return jsonify({'error': 'Authentication required'}), 401
+
+    data = request.get_json() or {}
+    user_msg = data.get('message', '').strip()
+
+    if not user_msg:
+        return jsonify({'reply': 'Please ask a question about store operations or product advice!'})
+
+    from models import Product, Order, User
+    context = {}
+    if current_user.role == 'admin':
+        context = {
+            'total_users': User.query.count(),
+            'total_products': Product.query.count(),
+            'total_orders': Order.query.count(),
+            'role': 'Admin'
+        }
+    elif current_user.role == 'seller':
+        context = {
+            'my_products': Product.query.filter_by(seller_id=current_user.id).count(),
+            'role': 'Seller'
+        }
+    else:
+        context = {
+            'role': 'Customer'
+        }
+
+    from services.ai_service import get_ai_project_management_insight
+    reply = get_ai_project_management_insight(user_msg, role=current_user.role, context_data=context)
+    return jsonify({'reply': reply})
+
 # ==================== MOBILE & ANDROID REST API ENDPOINTS ====================
 
 @api_bp.route('/products', methods=['GET'])

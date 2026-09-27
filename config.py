@@ -24,6 +24,9 @@ class Config:
     # Public Application URL (Local Ubuntu Server domain/IP or hostname)
     APP_URL = os.environ.get('APP_URL', 'http://127.0.0.1:5000').rstrip('/')
 
+    # Permanent Gemini AI API Key Configuration
+    GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AQ.Ab8RN6L8EbjpH6wX34JAB4f4hNWsztRKUum1GbRAdHnwD54rBQ')
+
     # Exclusive PostgreSQL Database Configuration
     DB_DIR = os.path.join(BASE_DIR, 'database')
     os.makedirs(DB_DIR, exist_ok=True)
